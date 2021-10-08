@@ -24,6 +24,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* Wait list */
+static struct list sleeping_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -36,6 +39,10 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+/* Less function of wait time */
+static bool thread_wait_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
+static bool thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -92,6 +99,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -201,6 +209,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (priority > thread_current ()->priority){
+    thread_yield ();
+  }
+
   return tid;
 }
 
@@ -237,7 +249,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, thread_priority_less_func, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -308,7 +320,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, thread_priority_less_func, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -336,6 +348,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield ();
 }
 
 /* Returns the current thread's priority. */
@@ -463,9 +476,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->wakeup_time = 0;
 
   old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
+  list_insert_ordered (&all_list, &t->allelem, thread_priority_less_func, NULL);
   intr_set_level (old_level);
 }
 
@@ -582,3 +596,49 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void
+thread_to_wait (struct thread *thd)
+{
+  list_insert_ordered (&sleeping_list, &thd->elem, thread_wait_less_func, NULL);
+  thread_block ();
+}
+
+static bool
+thread_wait_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread* a_thread = list_entry (a, struct thread, elem);
+  struct thread* b_thread = list_entry (b, struct thread, elem);
+  return a_thread->wakeup_time <= b_thread->wakeup_time;
+}
+
+void
+thread_check_awake (int64_t current_tick)
+{
+  if (list_empty (&sleeping_list))
+    return;
+
+  struct list_elem *iter = sleeping_list.head.next;
+  while (iter != &sleeping_list.tail)
+  {
+    struct list_elem *next_iter = iter->next;
+    struct thread* iter_thd = list_entry (iter, struct thread, elem);
+    if (iter_thd->wakeup_time > current_tick){
+      break;
+    }
+    enum intr_level old_level = intr_disable ();
+    list_remove(iter);
+    thread_unblock (iter_thd);
+    intr_set_level (old_level);
+    iter = next_iter;
+  }  
+  
+}
+
+static bool
+thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread* a_thread = list_entry (a, struct thread, elem);
+  struct thread* b_thread = list_entry (b, struct thread, elem);
+  return a_thread->priority > b_thread->priority;
+}
