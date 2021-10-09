@@ -250,19 +250,15 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered (&ready_list, &t->elem, thread_priority_less_func, NULL);
-  
-  // if (!list_empty (&ready_list)){
-  //   printf("---ready: ");
-  //   for (struct list_elem *it = list_front(&ready_list); it != &ready_list.tail; it = it->next)
-  //   {
-  //     struct thread *it_thd = list_entry (it, struct thread, elem);
-  //     printf("%s ", it_thd->name);
-  //   }
-  //   printf("---\n");
-
-  // }
 
   t->status = THREAD_READY;
+  
+  struct thread *cur = thread_current ();
+  // if (cur != idle_thread && t->priority > cur->priority)
+  // {
+  //   thread_yield ();
+  // }
+
   intr_set_level (old_level);
 }
 
