@@ -33,6 +33,8 @@
 #include "threads/thread.h"
 
 static bool lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+static bool thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+static bool sema_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -70,7 +72,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_priority_less_func, NULL);
       thread_block ();
     }
   sema->value--;
@@ -336,7 +338,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem, sema_priority_less_func, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -384,4 +386,20 @@ lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, v
   struct lock* a_lock = list_entry (a, struct lock, elem);
   struct lock* b_lock = list_entry (b, struct lock, elem);
   return a_lock->priority > b_lock->priority;
+}
+
+static bool
+thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread* a_thread = list_entry (a, struct thread, elem);
+  struct thread* b_thread = list_entry (b, struct thread, elem);
+  return a_thread->priority > b_thread->priority;
+}
+
+static bool
+sema_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct semaphore_elem* a_sema = list_entry (a, struct semaphore_elem, elem);
+  struct semaphore_elem* b_sema = list_entry (b, struct semaphore_elem, elem);
+  return a_sema->semaphore.priority > b_sema->semaphore.priority;
 }
