@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+static bool lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -196,8 +198,31 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread* cur_thd = thread_current ();
+  struct lock* iter_lock = lock;
+  
+  if (lock->holder != NULL){
+    cur_thd->waiting_lock = lock;
+  }
+
+  while ( iter_lock != NULL
+        && iter_lock->holder != NULL
+        && cur_thd->priority > iter_lock->holder->priority)
+  {
+    iter_lock->priority = cur_thd->priority;
+    thread_priority_donation (iter_lock->holder, cur_thd->priority);
+    iter_lock = iter_lock->holder->waiting_lock;
+  }
+
+  enum intr_level old_level = intr_disable ();
+  
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  cur_thd = thread_current ();
+  cur_thd->waiting_lock = NULL;
+  list_insert_ordered (&cur_thd->lock_list, &lock->elem, lock_priority_less_func, NULL);
+  lock->holder = cur_thd;
+
+  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -233,6 +258,22 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+
+  struct thread *cur = thread_current ();
+  list_remove (&lock->elem);
+  if (list_empty (&cur->lock_list)){
+    thread_set_priority (cur->prev_priority);
+  }
+  else{
+    int lock_priority = 0;
+    if (!list_empty (&cur->lock_list))
+    {
+      lock_priority = list_entry (list_front (&cur->lock_list), struct lock, elem)->priority;
+    }
+    int max_priority = (lock_priority > cur->prev_priority)? lock_priority:cur->prev_priority;
+    cur->priority = max_priority;
+    thread_yield ();
+  }
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -335,4 +376,12 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+static bool
+lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct lock* a_lock = list_entry (a, struct lock, elem);
+  struct lock* b_lock = list_entry (b, struct lock, elem);
+  return a_lock->priority > b_lock->priority;
 }

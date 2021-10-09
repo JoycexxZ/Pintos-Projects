@@ -250,6 +250,18 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered (&ready_list, &t->elem, thread_priority_less_func, NULL);
+  
+  // if (!list_empty (&ready_list)){
+  //   printf("---ready: ");
+  //   for (struct list_elem *it = list_front(&ready_list); it != &ready_list.tail; it = it->next)
+  //   {
+  //     struct thread *it_thd = list_entry (it, struct thread, elem);
+  //     printf("%s ", it_thd->name);
+  //   }
+  //   printf("---\n");
+
+  // }
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -347,8 +359,17 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
-  thread_yield ();
+  enum intr_level old_level = intr_disable ();
+  
+  struct thread* cur = thread_current ();
+  cur->prev_priority = new_priority;
+
+  if (list_empty (&cur->lock_list) || new_priority > cur->priority){
+    thread_current ()->priority = new_priority;
+    thread_yield ();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -477,6 +498,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->wakeup_time = 0;
+  t->waiting_lock = NULL;
+  t->prev_priority = priority;
+  list_init(&t->lock_list);
 
   old_level = intr_disable ();
   list_insert_ordered (&all_list, &t->allelem, thread_priority_less_func, NULL);
@@ -632,7 +656,6 @@ thread_check_awake (int64_t current_tick)
     intr_set_level (old_level);
     iter = next_iter;
   }  
-  
 }
 
 static bool
@@ -641,4 +664,18 @@ thread_priority_less_func (const struct list_elem *a, const struct list_elem *b,
   struct thread* a_thread = list_entry (a, struct thread, elem);
   struct thread* b_thread = list_entry (b, struct thread, elem);
   return a_thread->priority > b_thread->priority;
+}
+
+void
+thread_priority_donation(struct thread *thd, int priority){
+  enum intr_level old_level = intr_disable ();
+
+  ASSERT (is_thread (thd));
+  thd->priority = priority;
+
+  if (thd->status == THREAD_READY){
+    list_sort (&ready_list, thread_priority_less_func, NULL);
+  }
+
+  intr_set_level (old_level);
 }

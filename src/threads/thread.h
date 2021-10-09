@@ -90,6 +90,10 @@ struct thread
     int priority;                       /* Priority. */
     int wakeup_time;                    /* Wake up from sleeping. */
     struct list_elem allelem;           /* List element for all threads list. */
+    
+    int prev_priority;
+    struct list lock_list;
+    struct lock* waiting_lock;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -141,5 +145,6 @@ int thread_get_load_avg (void);
 
 void thread_to_wait (struct thread *thd);
 void thread_check_awake (int64_t current_tick);
+void thread_priority_donation (struct thread *thd, int priority);
 
 #endif /* threads/thread.h */
