@@ -1,4 +1,5 @@
-#include "fix_point.h"
+#include "threads/fix_point.h"
+#include <stdint.h>
 
 static fix_point f = 1 << FIX_POINT_SHIFT;
 

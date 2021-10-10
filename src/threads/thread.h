@@ -95,6 +95,9 @@ struct thread
     struct list lock_list;
     struct lock* waiting_lock;
 
+    int nice;
+    int recent_cpu;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -146,5 +149,12 @@ int thread_get_load_avg (void);
 void thread_to_wait (struct thread *thd);
 void thread_check_awake (int64_t current_tick);
 void thread_priority_donation (struct thread *thd, int priority);
+
+void thread_mlfqs_recent_cpu_add_one ();
+void thread_mlfqs_update_load_avg ();
+void thread_mlfqs_update_recent_cpu ();
+void thread_mlfqs_update_priority (struct thread *thd);
+void thread_mlfqs_update_all_priority ();
+
 
 #endif /* threads/thread.h */

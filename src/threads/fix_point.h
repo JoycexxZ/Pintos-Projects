@@ -27,4 +27,7 @@ fix_point mul_int(fix_point x, int n);
 
 fix_point div_int(fix_point x ,int n);
 
+
+
 #endif
+
