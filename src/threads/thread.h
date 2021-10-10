@@ -150,11 +150,11 @@ void thread_to_wait (struct thread *thd);
 void thread_check_awake (int64_t current_tick);
 void thread_priority_donation (struct thread *thd, int priority);
 
-void thread_mlfqs_recent_cpu_add_one ();
-void thread_mlfqs_update_load_avg ();
-void thread_mlfqs_update_recent_cpu ();
+void thread_mlfqs_recent_cpu_add_one (void);
+void thread_mlfqs_update_load_avg (void);
+void thread_mlfqs_update_recent_cpu (void);
 void thread_mlfqs_update_priority (struct thread *thd);
-void thread_mlfqs_update_all_priority ();
+void thread_mlfqs_update_all_priority (void);
 
 
 #endif /* threads/thread.h */
