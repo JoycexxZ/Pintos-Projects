@@ -155,6 +155,8 @@ void thread_mlfqs_update_load_avg (void);
 void thread_mlfqs_update_recent_cpu (void);
 void thread_mlfqs_update_priority (struct thread *thd);
 void thread_mlfqs_update_all_priority (void);
+void thread_mlfqs_update_recent_cpu_single (struct thread *thd, void *aux UNUSED);
+
 
 
 #endif /* threads/thread.h */
