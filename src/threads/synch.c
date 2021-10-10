@@ -219,7 +219,7 @@ lock_acquire (struct lock *lock)
     cur_thd->waiting_lock = lock;
   }
 
-  while ( iter_lock != NULL
+  while ( !thread_mlfqs && iter_lock != NULL
         && iter_lock->holder != NULL
         && cur_thd->priority > iter_lock->holder->priority)
   {
@@ -231,9 +231,12 @@ lock_acquire (struct lock *lock)
   enum intr_level old_level = intr_disable ();
   
   sema_down (&lock->semaphore);
-  cur_thd = thread_current ();
-  cur_thd->waiting_lock = NULL;
-  list_push_back (&cur_thd->lock_list, &lock->elem);
+  if (!thread_mlfqs)
+  {
+    cur_thd = thread_current ();
+    cur_thd->waiting_lock = NULL;
+    list_push_back (&cur_thd->lock_list, &lock->elem);
+  }
   lock->holder = cur_thd;
 
   intr_set_level (old_level);
@@ -273,6 +276,8 @@ lock_release (struct lock *lock)
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 
+  if (thread_mlfqs)
+    return;
   struct thread *cur = thread_current ();
   list_remove (&lock->elem);
   if (list_empty (&cur->lock_list)){
