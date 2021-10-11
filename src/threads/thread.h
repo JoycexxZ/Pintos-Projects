@@ -91,12 +91,12 @@ struct thread
     int wakeup_time;                    /* Wake up from sleeping. */
     struct list_elem allelem;           /* List element for all threads list. */
     
-    int prev_priority;
-    struct list lock_list;
-    struct lock* waiting_lock;
+    int prev_priority;                  /* Previous priority. */
+    struct list lock_list;              /* List of locks held by the thread. */
+    struct lock* waiting_lock;          /* The lock that blocks the thread. */
 
-    int nice;
-    int recent_cpu;
+    int nice;                           /* Nice. */
+    int recent_cpu;                     /* Recent CPU. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -146,6 +146,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Our newly defined functions */
 void thread_to_wait (struct thread *thd);
 void thread_check_awake (int64_t current_tick);
 void thread_priority_donation (struct thread *thd, int priority);
@@ -154,9 +155,6 @@ void thread_mlfqs_recent_cpu_add_one (void);
 void thread_mlfqs_update_load_avg (void);
 void thread_mlfqs_update_recent_cpu (void);
 void thread_mlfqs_update_priority (struct thread *thd);
-void thread_mlfqs_update_all_priority (void);
 void thread_mlfqs_update_recent_cpu_single (struct thread *thd, void *aux UNUSED);
-
-
 
 #endif /* threads/thread.h */

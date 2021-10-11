@@ -41,11 +41,14 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+/* Load average. */
 static fix_point load_avg;
 
-/* Less function of wait time */
+/* Less function of threads by wait time. */
 static bool thread_wait_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
-static bool thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+/* Less function of threads by priority. */
+static bool thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -127,6 +130,7 @@ thread_start (void)
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 
+  /* Initialize load average. */
   load_avg = int_to_fix(0);
 }
 
@@ -195,15 +199,13 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
   if (thread_mlfqs)
-  {
-    enum intr_level old_level = intr_disable();
-    t->nice = thread_get_nice();
-    t->recent_cpu = thread_get_recent_cpu();
-    intr_set_level (old_level);
-  }
-  
+    {
+      enum intr_level old_level = intr_disable ();
+      t->nice = thread_get_nice ();
+      t->recent_cpu = thread_get_recent_cpu ();
+      intr_set_level (old_level);
+    }
   
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -223,9 +225,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  if (priority > thread_current ()->priority){
+  /* If the newly create thread has 
+     higher priority, yield the cpu. */
+  if (priority > thread_current ()->priority)
     thread_yield ();
-  }
 
   return tid;
 }
@@ -257,23 +260,17 @@ thread_block (void)
 void
 thread_unblock (struct thread *t) 
 {
-  enum intr_level old_level;
+  // enum intr_level old_level;
 
   ASSERT (is_thread (t));
 
-  old_level = intr_disable ();
+  // old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
 
   t->status = THREAD_READY;
-  
-  struct thread *cur = thread_current ();
-  // if (cur != idle_thread && t->priority > cur->priority)
-  // {
-  //   thread_yield ();
-  // }
 
-  intr_set_level (old_level);
+  // intr_set_level (old_level);
 }
 
 /* Returns the name of the running thread. */
@@ -365,7 +362,10 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's prev_priority to NEW_PRIORITY. 
+   If NEW_PRIORITY is higher than priority of current thread 
+   or it does not have any lock, set current thread's 
+   priority to NEW_PRIORITY, yield the cpu. */
 void
 thread_set_priority (int new_priority) 
 {
@@ -376,10 +376,11 @@ thread_set_priority (int new_priority)
   struct thread* cur = thread_current ();
   cur->prev_priority = new_priority;
 
-  if (list_empty (&cur->lock_list) || new_priority > cur->priority){
-    thread_current ()->priority = new_priority;
-    thread_yield ();
-  }
+  if (list_empty (&cur->lock_list) || new_priority > cur->priority)
+    {
+      thread_current ()->priority = new_priority;
+      thread_yield ();
+    }
 
   intr_set_level (old_level);
 }
@@ -391,7 +392,8 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
-/* Sets the current thread's nice value to NICE. */
+/* Sets the current thread's nice value to NICE. 
+   After set new value, update priority and yield. */
 void
 thread_set_nice (int nice UNUSED) 
 {
@@ -753,23 +755,6 @@ thread_mlfqs_update_priority (struct thread *thd)
     thd->priority = PRI_MAX;
   if (thd->priority < PRI_MIN)
     thd->priority = PRI_MIN;
-  intr_set_level (old_level);
-  
-}
-
-void 
-thread_mlfqs_update_all_priority ()
-{
-  enum intr_level old_level = intr_disable ();
-  struct thread *thd;
-  struct list_elem *iter = list_begin(&all_list);
-
-  for (; iter != list_end(&all_list); iter = list_next(iter))
-  {
-    thd = list_entry (iter, struct thread, elem);
-    if (thd != idle_thread)
-      thread_mlfqs_update_priority(thd);
-  }
   intr_set_level (old_level);
   
 }
