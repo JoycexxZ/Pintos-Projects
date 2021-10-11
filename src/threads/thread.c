@@ -25,7 +25,8 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/* Wait list */
+/* List of all sleeping threads. Threads are added to this list
+   when `timer_sleep ()` called and removed when they stop sleeping.*/
 static struct list sleeping_list;
 
 /* List of all processes.  Processes are added to this list
@@ -547,7 +548,7 @@ next_thread_to_run (void)
     return idle_thread;
   else
   {
-    
+
     list_sort(&ready_list, thread_priority_less_func, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
   }

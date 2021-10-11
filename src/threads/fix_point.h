@@ -32,7 +32,7 @@
 #ifndef __FIX_POINT_H
 #define __FIX_POINT_H
 
-
+/* Type for fix point numbers. */
 typedef int fix_point;
 
 #define FIX_POINT_SHIFT 16
