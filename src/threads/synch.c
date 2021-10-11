@@ -212,11 +212,16 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level = intr_disable ();
+
   struct thread* cur_thd = thread_current ();
   struct lock* iter_lock = lock;
   
   if (lock->holder != NULL){
     cur_thd->waiting_lock = lock;
+  }
+  else{
+    lock->priority = cur_thd->priority;
   }
 
   while ( !thread_mlfqs && iter_lock != NULL
@@ -227,12 +232,11 @@ lock_acquire (struct lock *lock)
     thread_priority_donation (iter_lock->holder, cur_thd->priority);
     iter_lock = iter_lock->holder->waiting_lock;
   }
-
-  enum intr_level old_level = intr_disable ();
   
   sema_down (&lock->semaphore);
   if (!thread_mlfqs)
   {
+    ASSERT (intr_get_level () == INTR_OFF);
     cur_thd = thread_current ();
     cur_thd->waiting_lock = NULL;
     list_push_back (&cur_thd->lock_list, &lock->elem);

@@ -339,7 +339,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_insert_ordered (&ready_list, &cur->elem, thread_priority_less_func, NULL);
+    list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -547,6 +547,7 @@ next_thread_to_run (void)
     return idle_thread;
   else
   {
+    
     list_sort(&ready_list, thread_priority_less_func, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
   }
