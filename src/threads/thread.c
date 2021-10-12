@@ -648,6 +648,7 @@ thread_to_wait (struct thread *thd)
   thread_block ();
 }
 
+/* Less function of threads by wait time. */
 static bool
 thread_wait_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -656,6 +657,9 @@ thread_wait_less_func (const struct list_elem *a, const struct list_elem *b, voi
   return a_thread->wakeup_time <= b_thread->wakeup_time;
 }
 
+/* Traverse the sleeping_list and check the wakeup_time.
+    if a thread's wakeup_time is bigger than current_tick,
+    quit the function*/
 void
 thread_check_awake (int64_t current_tick)
 {
@@ -678,6 +682,7 @@ thread_check_awake (int64_t current_tick)
   }  
 }
 
+/* Less function of threads by priority. */
 static bool
 thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -686,6 +691,9 @@ thread_priority_less_func (const struct list_elem *a, const struct list_elem *b,
   return a_thread->priority > b_thread->priority;
 }
 
+/* Set the thread's priority to donated priority and resort the readly_list
+    
+    This function only be called with mlfqs down*/
 void
 thread_priority_donation(struct thread *thd, int priority){
   if (thread_mlfqs)
@@ -702,6 +710,8 @@ thread_priority_donation(struct thread *thd, int priority){
   intr_set_level (old_level);
 }
 
+/* Update the current thread's recent_cpu with plus one
+    This function will be called every intrrupt*/
 void 
 thread_mlfqs_recent_cpu_add_one ()
 {
@@ -712,18 +722,20 @@ thread_mlfqs_recent_cpu_add_one ()
   intr_set_level (old_level);
 }
 
+/* Update the load_avg*/
 void 
 thread_mlfqs_update_load_avg ()
 {
   enum intr_level old_level = intr_disable ();
   int ready_threads = (int)list_size (&ready_list);
-  if (thread_current() != idle_thread)
+  if (thread_current () != idle_thread)
     ready_threads ++;
   load_avg = add (div_int (mul_int (load_avg, 59), 60),
                   div_int (int_to_fix(ready_threads), 60));
   intr_set_level (old_level);
 }
 
+/* Update the recent_cpu for each thread*/
 void 
 thread_mlfqs_update_recent_cpu ()
 {
@@ -732,6 +744,7 @@ thread_mlfqs_update_recent_cpu ()
   intr_set_level (old_level);
 }
 
+/* Update the recent_cpu and the priority for a single thread*/
 void 
 thread_mlfqs_update_recent_cpu_single (struct thread *thd, void *aux UNUSED)
 {
@@ -743,7 +756,7 @@ thread_mlfqs_update_recent_cpu_single (struct thread *thd, void *aux UNUSED)
     }
 }
 
-
+/* UPdate the priority for a single thread*/
 void 
 thread_mlfqs_update_priority (struct thread *thd)
 {
