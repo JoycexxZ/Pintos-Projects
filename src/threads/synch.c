@@ -32,8 +32,13 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* Less function of locks by priority. */
 static bool lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+/* Less function of threads by priority. */
 static bool thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+/* Less function of sema by priority. */
 static bool sema_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
@@ -405,6 +410,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
+/* Less function of locks by priority. */
 static bool
 lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -413,6 +419,7 @@ lock_priority_less_func (const struct list_elem *a, const struct list_elem *b, v
   return a_lock->priority > b_lock->priority;
 }
 
+/* Less function of threads by priority. */
 static bool
 thread_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -421,6 +428,7 @@ thread_priority_less_func (const struct list_elem *a, const struct list_elem *b,
   return a_thread->priority > b_thread->priority;
 }
 
+/* Less function of sema by priority. */
 static bool
 sema_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
