@@ -30,6 +30,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+  char *real_name, *save_ptr;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -38,8 +39,10 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  real_name = strtok_r(file_name," ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -53,13 +56,65 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  char* token, *save_ptr;
+  char* argv[20];
+  int argc = 0;
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  if (argv == NULL)
+  {
+    return TID_ERROR;
+  }
+
+  token = strtok_r(file_name, " ", &save_ptr);
+  argv[argc] = token;
+  argc++;
+
+  while (token != NULL)
+  {
+    token = strtok_r(NULL, " ", &save_ptr);
+    argv[argc] = token;
+    argc++;
+  }
+  
+  success = load (argv[0], &if_.eip, &if_.esp);
+
+  char* arg_add[argc];
+  for (int i = argc-1; i>=0; i--)
+  {
+    size_t arg_size = sizeof(char)*(strlen(argv[i])+1);
+    if_.esp -= arg_size;
+    memcpy(if_.esp, argv[i], arg_size);
+    arg_add[i] = (char*)if_.esp;
+  }
+
+  while ((int)if_.esp % 4 != 0)
+  {
+    if_.esp--;
+  }
+  
+  if_.esp -= 4;
+  *(int*)if_.esp = 0;
+   
+  for (int i = argc-1; i>=0; i--)
+  {
+    if_.esp -= 4;
+    *(char**)if_.esp = arg_add[i];
+  }
+  
+  if_.esp -= 4;
+  *(char**)if_.esp = (char*)if_.esp + 4;
+
+  if_.esp -= 4;
+  *(int*)if_.esp = argc;
+
+  if_.esp -= 4;
+  *(int*)if_.esp = 0;
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -110,6 +165,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+      printf("%s: exit(0)\n",cur->name);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
