@@ -71,13 +71,17 @@ start_process (void *file_name_)
     return TID_ERROR;
   }
 
+  //enum intr_level old_level = intr_disable();
+
   token = strtok_r(file_name, " ", &save_ptr);
   argv[argc] = token;
   argc++;
 
-  while (token != NULL)
+  while (true)
   {
     token = strtok_r(NULL, " ", &save_ptr);
+    if (token == NULL)
+      break;
     argv[argc] = token;
     argc++;
   }
@@ -85,7 +89,7 @@ start_process (void *file_name_)
   success = load (argv[0], &if_.eip, &if_.esp);
 
   char* arg_add[argc];
-  for (int i = argc-1; i>=0; i--)
+  for (int i = argc-1; i>0; i--)
   {
     size_t arg_size = sizeof(char)*(strlen(argv[i])+1);
     if_.esp -= arg_size;
@@ -101,7 +105,7 @@ start_process (void *file_name_)
   if_.esp -= 4;
   *(int*)if_.esp = 0;
    
-  for (int i = argc-1; i>=0; i--)
+  for (int i = argc-1; i>0; i--)
   {
     if_.esp -= 4;
     *(char**)if_.esp = arg_add[i];
@@ -115,6 +119,8 @@ start_process (void *file_name_)
 
   if_.esp -= 4;
   *(int*)if_.esp = 0;
+
+  //intr_set_level(old_level);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -493,7 +499,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }
