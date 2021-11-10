@@ -6,7 +6,7 @@ typedef int pid_t;
 
 void syscall_init (void);
 
-int *get_ith_arg (struct intr_frame *f, int i);
+int get_ith_arg (struct intr_frame *f, int i);
 
 void check_valid (const void *add);
 
