@@ -89,7 +89,7 @@ start_process (void *file_name_)
   success = load (argv[0], &if_.eip, &if_.esp);
 
   char* arg_add[argc];
-  for (int i = argc-1; i>0; i--)
+  for (int i = argc-1; i>=0; i--)
   {
     size_t arg_size = sizeof(char)*(strlen(argv[i])+1);
     if_.esp -= arg_size;
@@ -105,7 +105,7 @@ start_process (void *file_name_)
   if_.esp -= 4;
   *(int*)if_.esp = 0;
    
-  for (int i = argc-1; i>0; i--)
+  for (int i = argc-1; i>=0; i--)
   {
     if_.esp -= 4;
     *(char**)if_.esp = arg_add[i];

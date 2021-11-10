@@ -36,7 +36,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXIT:
-    exit(*get_ith_arg(f, 0));
+    exit(get_ith_arg(f, 0));
     break;
 
   case SYS_EXEC:
@@ -45,15 +45,19 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_WRITE:
     {
-      int fd = *get_ith_arg(f, 0);
+      enum intr_level old_level = intr_disable ();
+      int fd = get_ith_arg(f, 0);
       const void *buffer_head = (const void *) get_ith_arg(f, 1);
-      unsigned size = *(unsigned *) get_ith_arg(f, 2);
+      unsigned size = (unsigned) get_ith_arg(f, 2);
       const void *buffer_tail = (const void *) buffer_head + (size-1)*4;
       
       check_valid(buffer_head);
       check_valid(buffer_tail);
 
-      write(fd, buffer_head, size);
+      const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           buffer_head);
+      write(fd, buffer, size);
+      intr_set_level (old_level);
     }
     break;
     
@@ -108,9 +112,9 @@ void check_valid (const void *add)
       exit(-1);
 }
 
-int *get_ith_arg (struct intr_frame *f, int i)
+int get_ith_arg (struct intr_frame *f, int i)
 {
   int *argv = (int *) f->esp + i + 1;
   check_valid(argv);
-  return argv;
+  return *argv;
 }
