@@ -20,6 +20,10 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void find_thread_by_tid (struct thread *matching, void * aux UNUSED);
+
+static tid_t target_tid;
+static struct thread * find_it;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -45,6 +49,13 @@ process_execute (const char *file_name)
   tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+
+  target_tid = tid;
+  enum intr_level old_level = intr_disable();
+  thread_foreach(*find_thread_by_tid, NULL);
+  list_push_back(&thread_current()->child_list, &find_it->child_elem);
+  intr_set_level(old_level);
+
   return tid;
 }
 
@@ -524,4 +535,11 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+static void 
+find_thread_by_tid (struct thread *matching, void * aux UNUSED)
+{
+  if (target_tid == matching->tid)
+    find_it = matching;
 }
