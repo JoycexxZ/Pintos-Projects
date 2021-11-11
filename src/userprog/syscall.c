@@ -92,7 +92,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       check_valid (file_ptr);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                      file_ptr);
-      open (file);
+      f->eax = open (file);
     }
     break;
 
@@ -118,6 +118,13 @@ halt (void)
 void 
 exit (int status)
 {
+  struct thread *cur = thread_current ();
+  while (!list_empty(&cur->files))
+  {
+    struct list_elem* e = list_begin (&cur->files);
+    int fd = list_entry (e, struct thread_file, f_listelem)->fd;
+    close (fd);
+  }
   thread_current()->exit_status = status;
   thread_exit();
 }
@@ -163,15 +170,15 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
-  if (file == ""){
-    lock_release(&filesys_lock);
-    exit (-1);    
-  }
+  // if (file == ""){
+  //   lock_release(&filesys_lock);
+  //   exit (-1);    
+  // }
   struct file *f = filesys_open (file);
   if (f == NULL)
   {
     lock_release(&filesys_lock);
-    exit (-1);
+    exit(0);
   }
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
