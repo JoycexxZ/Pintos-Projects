@@ -71,19 +71,17 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_WRITE:
     {
-      //enum intr_level old_level = intr_disable ();
       int fd = get_ith_arg(f, 0);
       const void *buffer_head = (const void *) get_ith_arg(f, 1);
       unsigned size = (unsigned) get_ith_arg(f, 2);
-      const void *buffer_tail = (const void *) buffer_head + (size-1)*4;
+      //const void *buffer_tail = ((const void *) buffer_head) + (size-1)*4;
       
       check_valid(buffer_head);
-      check_valid(buffer_tail);
+      //check_valid(buffer_tail);
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
       f->eax = write(fd, buffer, size);
-      //intr_set_level (old_level);
     }
     break;
     
@@ -101,10 +99,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       const void * file_head = (const void *)get_ith_arg(f, 0);
       unsigned size = (unsigned) get_ith_arg(f, 1);
-      const void * file_tail = file_head + (size - 1)*4;
+      //const void * file_tail = file_head + size *4;
 
       check_valid(file_head);
-      check_valid(file_tail);
+      //check_valid(file_tail);
 
       const void *file = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            file_head);
@@ -125,7 +123,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_FILESIZE:
-    check_valid(get_ith_arg(f, 0));
     f->eax = filesize(get_ith_arg(f, 0));
     break;
 
@@ -145,10 +142,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       int fd = get_ith_arg (f, 0);
       const void *buffer_head = (const void *) get_ith_arg(f, 1);
       unsigned size = (unsigned) get_ith_arg(f, 2);
-      const void *buffer_tail = (const void *) buffer_head + (size-1)*4;
+      //const void *buffer_tail = ((const void *) buffer_head) + (size - 1)*4;
       
       check_valid(buffer_head);
-      check_valid(buffer_tail);
+      //check_valid(buffer_tail);
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
@@ -338,6 +335,7 @@ read (int fd, void *buffer, unsigned size)
 {
   lock_acquire (&filesys_lock);
   if (fd == 0){
+    lock_release(&filesys_lock);
     return (int)input_getc ();
   }
 
@@ -347,7 +345,7 @@ read (int fd, void *buffer, unsigned size)
     return -1;
   }
 
-  int length = file_read (f->f, buffer, size);
+  int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
   return length;
 }
