@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "threads/malloc.h"
+#include "devices/input.h"
 
 
 #define VADD_LIMIT 0x08048000
@@ -42,8 +43,8 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  check_valid((const void *) f->esp);
-  check_valid((const void *) f->esp + 4);
+  check_valid((const void *)f->esp);
+  check_valid((const void *)f->esp +4);
   
   switch (*(int *)f->esp)
   {
@@ -123,6 +124,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
 
+<<<<<<< HEAD
   case SYS_FILESIZE:
     check_valid(get_ith_arg(f, 0));
     f->eax = filesize(get_ith_arg(f, 0));
@@ -139,6 +141,24 @@ syscall_handler (struct intr_frame *f UNUSED)
     f->eax = tell(get_ith_arg(f, 0));
     break;
 
+=======
+  case SYS_READ:
+    {
+      int fd = get_ith_arg (f, 0);
+      const void *buffer_head = (const void *) get_ith_arg(f, 1);
+      unsigned size = (unsigned) get_ith_arg(f, 2);
+      const void *buffer_tail = (const void *) buffer_head + (size-1)*4;
+      
+      check_valid(buffer_head);
+      check_valid(buffer_tail);
+
+      const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           buffer_head);
+      f->eax = read (fd, buffer, size);
+    }
+    break;
+  
+>>>>>>> c0181f2cdc1ce551475346650e53a240b35b54a5
   default:
     exit(-1);
     break;
@@ -258,7 +278,6 @@ remove (const char *file)
   return ret;
 }
 
-
 void
 close (int fd)
 {
@@ -273,6 +292,7 @@ close (int fd)
   lock_release (&filesys_lock);
 }
 
+<<<<<<< HEAD
 int 
 filesize (int fd)
 {
@@ -315,6 +335,25 @@ tell (int fd)
   unsigned position = (unsigned) file_tell(f->f);
   lock_release(&filesys_lock);
   return position;
+=======
+int
+read (int fd, void *buffer, unsigned size)
+{
+  lock_acquire (&filesys_lock);
+  if (fd == 0){
+    return (int)input_getc ();
+  }
+
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL){
+    lock_release (&filesys_lock);
+    return -1;
+  }
+
+  int length = file_read (f->f, buffer, size);
+  lock_release (&filesys_lock);
+  return length;
+>>>>>>> c0181f2cdc1ce551475346650e53a240b35b54a5
 }
 
 void 
