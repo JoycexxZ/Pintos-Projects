@@ -12,7 +12,7 @@
 #include "threads/malloc.h"
 
 
-#define vadd_limit 0x08048000
+#define VADD_LIMIT 0x08048000
 
 static void syscall_handler (struct intr_frame *);
 
@@ -56,8 +56,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXEC:
-    check_valid((const void *)get_ith_arg(f, 0));
-    f->eax = exec((char *)get_ith_arg(f, 0));
+    {
+
+      check_valid((const void *)get_ith_arg(f, 0));
+      f->eax = exec((char *)get_ith_arg(f, 0));
+
+    }
     break;
 
   case SYS_WAIT:
@@ -100,7 +104,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
   
   default:
-    exit(0);
+    exit(-1);
+    break;
   }
 }
 
@@ -199,7 +204,7 @@ void
 check_valid (const void *add)
 {
   if (!is_user_vaddr(add) || add == NULL || 
-      pagedir_get_page(thread_current()->pagedir, add) == NULL)
+      pagedir_get_page(thread_current()->pagedir, add) == NULL || add < (void *)VADD_LIMIT)
       exit(-1);
 }
 
