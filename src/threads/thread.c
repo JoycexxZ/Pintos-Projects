@@ -465,12 +465,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+#ifdef USERPROG
   list_init(&t->child_list);
   list_init(&t->files);
   sema_init(&t->waiting_process, 0);
 
   t->fd = 2;
   t->exit_status = -1;
+#endif
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

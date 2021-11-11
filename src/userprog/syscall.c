@@ -9,12 +9,28 @@
 #include "filesys/filesys.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "threads/malloc.h"
+
 
 #define vadd_limit 0x08048000
 
 static void syscall_handler (struct intr_frame *);
 
 struct lock filesys_lock;
+
+static struct thread_file*
+find_file_by_fd (int fd)
+{
+  struct thread* cur = thread_current ();
+  struct list_elem* it = list_begin (&cur->files);
+  for (;it != list_end (&cur->files); it = list_next (it))
+    {
+      struct thread_file *f = list_entry (it, struct thread_file, f_listelem);
+      if (f->fd == fd)
+        return f;
+    }
+  return NULL;
+}
 
 void
 syscall_init (void) 
@@ -46,6 +62,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_WAIT:
     f->eax = wait((pid_t)get_ith_arg(f, 0));
+    break;
 
   case SYS_WRITE:
     {
@@ -65,7 +82,22 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
     
+  case SYS_OPEN:
+    {
+      const void *file_ptr = (const void *)get_ith_arg (f, 0);
+      check_valid (file_ptr);
+      const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
+                                                     file_ptr);
+      open (file);
+    }
+    break;
 
+  case SYS_CLOSE:
+    {
+      int fd = get_ith_arg (f, 0);
+      close (fd);
+    }
+    break;
   
   default:
     exit(0);
@@ -116,10 +148,52 @@ write (int fd, const void *buffer, unsigned size)
     lock_release(&filesys_lock);
     return size;
   }
-
-
+  struct thread_file *f = find_file_by_fd (fd);
+  int real_size = (int)file_write(f->f, buffer, (off_t)size);
+  lock_release (&filesys_lock);
+  return real_size;
 }
 
+int
+open (const char *file)
+{
+  lock_acquire (&filesys_lock);
+  struct file *f = filesys_open (file);
+  if (f == NULL)
+  {
+    lock_release(&filesys_lock);
+    exit (-1);
+  }
+
+  struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
+  if (thread_f == NULL){
+    lock_release(&filesys_lock);
+    exit (-1);
+  }
+
+  struct thread *cur = thread_current ();
+  thread_f->f = f;
+  thread_f->fd = cur->fd;
+  cur->fd++;
+  list_push_back (&thread_current ()->files, &thread_f->f_listelem);
+
+  lock_release (&filesys_lock);
+  return thread_f->fd;
+}
+
+void
+close (int fd)
+{
+  lock_acquire (&filesys_lock);
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL){
+    lock_release (&filesys_lock);
+    exit (-1);
+  }
+  file_close (f->f);
+  list_remove (&f->f_listelem);
+  lock_release (&filesys_lock);
+}
 
 void 
 check_valid (const void *add)
