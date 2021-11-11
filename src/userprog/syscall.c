@@ -122,7 +122,23 @@ syscall_handler (struct intr_frame *f UNUSED)
       close (fd);
     }
     break;
-  
+
+  case SYS_FILESIZE:
+    check_valid(get_ith_arg(f, 0));
+    f->eax = filesize(get_ith_arg(f, 0));
+    break;
+
+  case SYS_SEEK:
+    {
+      int fd = get_ith_arg(f, 0);
+      unsigned position = (unsigned) get_ith_arg(f, 1);
+      seek(fd, position);
+    }
+    break;
+  case SYS_TELL:
+    f->eax = tell(get_ith_arg(f, 0));
+    break;
+
   default:
     exit(-1);
     break;
@@ -255,6 +271,50 @@ close (int fd)
   file_close (f->f);
   list_remove (&f->f_listelem);
   lock_release (&filesys_lock);
+}
+
+int 
+filesize (int fd)
+{
+  lock_acquire(&filesys_lock);
+  struct thread_file *f = find_file_by_fd(fd);
+  if (f == NULL)
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  lock_release(&filesys_lock);
+  return (int) file_length(f->f);
+}
+
+void 
+seek (int fd, unsigned position)
+{
+  lock_acquire(&filesys_lock);
+  struct thread_file *f = find_file_by_fd(fd);
+  if (f == NULL)
+  {
+    lock_release(&filesys_lock);
+    return;
+  }
+  file_seek(f->f, position);
+  lock_release(&filesys_lock);
+  return;
+}
+
+unsigned 
+tell (int fd)
+{
+  lock_acquire(&filesys_lock);
+  struct thread_file *f = find_file_by_fd(fd);
+  if (f == NULL)
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  unsigned position = (unsigned) file_tell(f->f);
+  lock_release(&filesys_lock);
+  return position;
 }
 
 void 
