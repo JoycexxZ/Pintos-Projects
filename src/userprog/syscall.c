@@ -163,6 +163,10 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
+  if (file == ""){
+    lock_release(&filesys_lock);
+    exit (-1);    
+  }
   struct file *f = filesys_open (file);
   if (f == NULL)
   {
