@@ -26,6 +26,8 @@ int write (int fd, const void *buffer, unsigned size);
 int wait (pid_t pid);
 int open (const char *file);
 void close (int fd);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
 
 
 #endif /* userprog/syscall.h */

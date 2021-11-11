@@ -42,8 +42,8 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  check_valid((const void *)f->esp);
-  
+  check_valid((const void *) f->esp);
+  check_valid((const void *) f->esp + 4);
   
   switch (*(int *)f->esp)
   {
@@ -70,7 +70,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_WRITE:
     {
-      enum intr_level old_level = intr_disable ();
+      //enum intr_level old_level = intr_disable ();
       int fd = get_ith_arg(f, 0);
       const void *buffer_head = (const void *) get_ith_arg(f, 1);
       unsigned size = (unsigned) get_ith_arg(f, 2);
@@ -82,7 +82,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
       f->eax = write(fd, buffer, size);
-      intr_set_level (old_level);
+      //intr_set_level (old_level);
     }
     break;
     
@@ -92,8 +92,28 @@ syscall_handler (struct intr_frame *f UNUSED)
       check_valid (file_ptr);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                      file_ptr);
-      open (file);
+      f->eax = open (file);
     }
+    break;
+
+  case SYS_CREATE:
+    {
+      const void * file_head = (const void *)get_ith_arg(f, 0);
+      unsigned size = (unsigned) get_ith_arg(f, 1);
+      const void * file_tail = file_head + (size - 1)*4;
+
+      check_valid(file_head);
+      check_valid(file_tail);
+
+      const void *file = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           file_head);
+      f->eax = create( (const char *) file, size);
+    }
+    break;
+
+  case SYS_REMOVE:
+    check_valid(get_ith_arg(f, 0));
+    f->eax = remove( (const char *) get_ith_arg(f, 0));
     break;
 
   case SYS_CLOSE:
@@ -153,7 +173,14 @@ write (int fd, const void *buffer, unsigned size)
     lock_release(&filesys_lock);
     return size;
   }
+
   struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL)
+  {
+    lock_release(&filesys_lock);
+    return 0;
+  }
+
   int real_size = (int)file_write(f->f, buffer, (off_t)size);
   lock_release (&filesys_lock);
   return real_size;
@@ -163,15 +190,15 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
-  if (file == ""){
+  /*if (file == ""){
     lock_release(&filesys_lock);
     exit (-1);    
-  }
+  }*/
   struct file *f = filesys_open (file);
   if (f == NULL)
   {
     lock_release(&filesys_lock);
-    exit (-1);
+    return -1;
   }
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
@@ -189,6 +216,25 @@ open (const char *file)
   lock_release (&filesys_lock);
   return thread_f->fd;
 }
+
+bool 
+create (const char *file, unsigned initial_size)
+{
+  lock_acquire(&filesys_lock);
+  bool ret = filesys_create(file, initial_size);
+  lock_release(&filesys_lock);
+  return ret;
+}
+
+bool 
+remove (const char *file)
+{
+  lock_acquire(&filesys_lock);
+  bool ret = filesys_remove(file);
+  lock_release(&filesys_lock);
+  return ret;
+}
+
 
 void
 close (int fd)
