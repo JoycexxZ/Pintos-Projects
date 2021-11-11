@@ -138,6 +138,13 @@ halt (void)
 void 
 exit (int status)
 {
+  struct thread *cur = thread_current ();
+  while (!list_empty(&cur->files))
+  {
+    struct list_elem* e = list_begin (&cur->files);
+    int fd = list_entry (e, struct thread_file, f_listelem)->fd;
+    close (fd);
+  }
   thread_current()->exit_status = status;
   thread_exit();
 }
