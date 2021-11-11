@@ -14,6 +14,7 @@ void halt (void);
 void exit (int status);
 pid_t exec (const char *cmd_line);
 int write (int fd, const void *buffer, unsigned size);
+int wait (pid_t pid);
 
 
 #endif /* userprog/syscall.h */

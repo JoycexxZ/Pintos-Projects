@@ -40,8 +40,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXEC:
-    exec((char *)get_ith_arg(f, 0));
+    check_valid((const void *)get_ith_arg(f, 0));
+    f->eax = exec((char *)get_ith_arg(f, 0));
     break;
+
+  case SYS_WAIT:
+    f->eax = wait((pid_t)get_ith_arg(f, 0));
 
   case SYS_WRITE:
     {
@@ -56,7 +60,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
-      write(fd, buffer, size);
+      f->eax = write(fd, buffer, size);
       intr_set_level (old_level);
     }
     break;
@@ -68,18 +72,21 @@ syscall_handler (struct intr_frame *f UNUSED)
   }
 }
 
-void halt (void)
+void 
+halt (void)
 {
 	shutdown_power_off();
 }
 
-void exit (int status)
+void 
+exit (int status)
 {
   thread_current()->exit_status = status;
   thread_exit();
 }
 
-pid_t exec (const char *cmd_line)
+pid_t 
+exec (const char *cmd_line)
 {
   if (!cmd_line)
     return -1;
@@ -91,7 +98,14 @@ pid_t exec (const char *cmd_line)
   return new_tid;
 }
 
-int write (int fd, const void *buffer, unsigned size)
+int
+wait (pid_t pid)
+{
+  return process_wait(pid);
+}
+
+int 
+write (int fd, const void *buffer, unsigned size)
 {
 
   lock_acquire(&filesys_lock);
@@ -102,17 +116,21 @@ int write (int fd, const void *buffer, unsigned size)
     lock_release(&filesys_lock);
     return size;
   }
+
+
 }
 
 
-void check_valid (const void *add)
+void 
+check_valid (const void *add)
 {
   if (!is_user_vaddr(add) || add == NULL || 
       pagedir_get_page(thread_current()->pagedir, add) == NULL)
       exit(-1);
 }
 
-int get_ith_arg (struct intr_frame *f, int i)
+int 
+get_ith_arg (struct intr_frame *f, int i)
 {
   int *argv = (int *) f->esp + i + 1;
   check_valid(argv);

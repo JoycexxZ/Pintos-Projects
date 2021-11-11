@@ -48,7 +48,10 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
+  {
     palloc_free_page (fn_copy); 
+    return tid;
+  }
 
   target_tid = tid;
   enum intr_level old_level = intr_disable();
@@ -68,7 +71,7 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   char* token, *save_ptr;
-  char* argv[20];
+  char* argv[25];
   int argc = 0;
 
   /* Initialize interrupt frame and load executable. */
@@ -98,6 +101,12 @@ start_process (void *file_name_)
   }
   
   success = load (argv[0], &if_.eip, &if_.esp);
+
+  if (!success) 
+  {
+    palloc_free_page (file_name);
+    thread_exit ();
+  }
 
   char* arg_add[argc];
   for (int i = argc-1; i>=0; i--)
@@ -131,12 +140,8 @@ start_process (void *file_name_)
   if_.esp -= 4;
   *(int*)if_.esp = 0;
 
-  //intr_set_level(old_level);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -160,7 +165,27 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct thread *child_thread = NULL;
+
+  if (list_empty(&thread_current()->child_list))
+    return -1;
+  
+  for (struct list_elem * i = list_begin(&thread_current()->child_list); i != list_end(&thread_current()->child_list); i = list_next(i))
+  {
+    if (list_entry(i, struct thread, child_elem)->tid == child_tid)
+    {
+      child_thread = list_entry(i, struct thread, child_elem);
+      break;
+    }
+  }
+
+  if (child_thread == NULL)
+    return -1;
+
+  list_remove(&child_thread->child_elem);
+  sema_down(&child_thread->waiting_process);
+
+  return child_thread->exit_status;
 }
 
 /* Free the current process's resources. */
@@ -182,7 +207,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      printf("%s: exit(0)\n",cur->name);
+      printf("%s: exit(%d)\n",cur->name, cur->exit_status);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
