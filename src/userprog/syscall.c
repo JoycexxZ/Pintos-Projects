@@ -282,7 +282,8 @@ close (int fd)
     exit (-1);
   }
   file_close (f->f);
-  list_remove (&f->f_listelem);
+  list_remove (&f->f_listelem); 
+  free (f);
   lock_release (&filesys_lock);
 }
 

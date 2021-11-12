@@ -104,7 +104,7 @@ start_process (void *file_name_)
 
   if (!success) 
   {
-    palloc_free_page (file_name);
+    palloc_free_page (file_name_);
     thread_exit ();
   }
 
@@ -407,6 +407,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+
+  if (success == true)
+    file_deny_write (file);
 
  done:
   /* We arrive here whether the load is successful or not. */
