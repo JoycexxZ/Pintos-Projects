@@ -77,7 +77,7 @@ start_process (void *file_name_)
   char* token, *save_ptr;
   char* argv[25];
   int argc = 0;
-
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -99,7 +99,12 @@ start_process (void *file_name_)
     argc++;
   }
 
+  request_load((char *) argv[0]);
+
   success = load (argv[0], &if_.eip, &if_.esp);
+
+  load_finish ((char *) argv[0]);
+  printf ("load finish! success: %d\n", success);
 
   if (!success) 
   {
@@ -112,7 +117,7 @@ start_process (void *file_name_)
   {
     size_t arg_size = sizeof(char)*(strlen(argv[i])+1);
     if_.esp -= arg_size;
-    memcpy(if_.esp, argv[i], arg_size);
+    memcpy(if_.esp, (const void *)argv[i], arg_size);
     arg_add[i] = (char*)if_.esp;
   }
 
@@ -326,12 +331,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  
+  
   file = filesys_open (file_name);
+  
+  
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

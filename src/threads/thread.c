@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "threads/malloc.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -36,6 +37,16 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+static struct list exe_file_list;
+
+struct exe_file
+{
+  char* file_name;
+  struct lock file_sema;
+  struct list_elem elem;
+};
+
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -92,6 +103,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&exe_file_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -588,6 +600,54 @@ allocate_tid (void)
   lock_release (&tid_lock);
 
   return tid;
+}
+
+void
+request_load (char *file_name)
+{
+  enum intr_level old_level = intr_disable();
+  struct exe_file *find = NULL;
+  for (struct list_elem *i = list_begin(&exe_file_list); 
+        i != list_end(&exe_file_list); i = list_next(i))
+  {
+    struct exe_file *f = list_entry(i, struct exe_file, elem);
+    int flag = strcmp(f->file_name, file_name);
+    //printf("strcmp(%s, %s) = %d\n",f->file_name,file_name, flag);
+    if (flag == 0)
+    {
+      find = f;
+      break;
+    }
+  }
+
+  if (find == NULL)
+  {
+    size_t size = sizeof (char) * (strlen (file_name) + 1);
+    find = (struct exe_file *)malloc (sizeof (struct exe_file));
+    find->file_name = (char *)malloc (size);
+    memcpy ((void *)find->file_name, (const void *)file_name, size);
+    lock_init(&find->file_sema);
+    list_push_back(&exe_file_list, &find->elem);
+  }
+  intr_set_level(old_level);
+  lock_acquire(&find->file_sema);
+}
+
+void
+load_finish (char * file_name)
+{
+  
+  for (struct list_elem *i = list_begin(&exe_file_list); 
+        i != list_end(&exe_file_list); i = list_next(i))
+  {
+    struct exe_file *f = list_entry(i, struct exe_file, elem);
+    if (strcmp(f->file_name, file_name) == 0)
+    {
+      lock_release (&f->file_sema);
+      break;
+    }
+  }
+
 }
 
 /* Offset of `stack' member within `struct thread'.

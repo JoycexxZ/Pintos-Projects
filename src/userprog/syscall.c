@@ -239,7 +239,7 @@ open (const char *file)
   if (f == NULL)
   {
     lock_release(&filesys_lock);
-    return -1;
+    exit(-1);
   }
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));

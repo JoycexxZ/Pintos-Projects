@@ -150,4 +150,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void request_load (char *file_name);
+void load_finish (char * file_name);
+
 #endif /* threads/thread.h */
