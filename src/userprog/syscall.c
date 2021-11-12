@@ -58,9 +58,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_EXEC:
     {
-
-      check_valid((const void *)get_ith_arg(f, 0));
       const void *vcmd_line = (const void *)get_ith_arg(f, 0);
+      check_valid(vcmd_line);
       const void *cmd_line = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            vcmd_line);
       f->eax = exec((char *)cmd_line);
@@ -93,7 +92,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       const void *file_ptr = (const void *)get_ith_arg (f, 0);
       check_valid (file_ptr);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
-                                                     file_ptr);
+                                                         file_ptr);
       f->eax = open (file);
     }
     break;
@@ -114,8 +113,13 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_REMOVE:
-    check_valid(get_ith_arg(f, 0));
-    f->eax = remove( (const char *) get_ith_arg(f, 0));
+    {
+      const void *file_ptr = (const void *)get_ith_arg(f, 0);
+      check_valid (file_ptr);
+      const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
+                                                      file_ptr);
+      f->eax = remove (file);
+    }
     break;
 
   case SYS_CLOSE:
@@ -152,7 +156,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
-      f->eax = read (fd, buffer, size);
+      f->eax = read (fd, (void *)buffer, size);
     }
     break;
   
@@ -367,5 +371,6 @@ get_ith_arg (struct intr_frame *f, int i)
 {
   int *argv = (int *) f->esp + i + 1;
   check_valid(argv);
+  check_valid((void *)argv + 3);
   return *argv;
 }
