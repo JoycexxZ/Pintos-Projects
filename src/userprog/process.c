@@ -59,7 +59,9 @@ process_execute (const char *file_name)
   enum intr_level old_level = intr_disable();
   thread_foreach(*find_thread_by_tid, NULL);
   list_push_back(&thread_current()->child_list, &find_it->child_elem);
+  find_it->parent = thread_current();
   intr_set_level(old_level);
+  
 
   return tid;
 }
@@ -102,7 +104,7 @@ start_process (void *file_name_)
   if (!success) 
   {
     palloc_free_page (file_name_);
-    thread_exit ();
+    exit(-1);
   }
 
   char* arg_add[argc];
@@ -180,9 +182,10 @@ process_wait (tid_t child_tid UNUSED)
   if (child_thread == NULL)
     return -1;
 
-  int status = child_thread->exit_status;
+  
   list_remove(&child_thread->child_elem);
   sema_down(&child_thread->waiting_process);
+  int status = cur->child_status;
 
   return status;
 }
@@ -207,6 +210,10 @@ process_exit (void)
          directory, or our active page directory will be one
          that's been freed (and cleared). */
       printf("%s: exit(%d)\n",cur->name, cur->exit_status);
+      /*struct file* file_t = filesys_open (cur->name);
+      file_t->deny_write = 1;
+      file_allow_write(file_t);*/
+      file_close(cur->file);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
@@ -411,7 +418,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   if (success == true)
+  {
+    thread_current()->file = file;
     file_deny_write (file);
+  }
   else
     file_close (file);
   return success;

@@ -183,6 +183,7 @@ exit (int status)
     close (fd);
   }
   cur->exit_status = status;
+  cur->parent->child_status = status;
   thread_exit();
 }
 
@@ -223,8 +224,7 @@ write (int fd, const void *buffer, unsigned size)
   {
     lock_release(&filesys_lock);
     return 0;
-  }
-
+  } 
   int real_size = (int)file_write(f->f, buffer, (off_t)size);
   lock_release (&filesys_lock);
   return real_size;
@@ -234,10 +234,7 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
-  /*if (file == ""){
-    lock_release(&filesys_lock);
-    exit (-1);    
-  }*/
+  
   struct file *f = filesys_open (file);
   if (f == NULL)
   {
@@ -255,7 +252,7 @@ open (const char *file)
   thread_f->f = f;
   thread_f->fd = cur->fd;
   cur->fd++;
-  list_push_back (&thread_current ()->files, &thread_f->f_listelem);
+  list_push_back (&cur->files, &thread_f->f_listelem);
 
   lock_release (&filesys_lock);
   return thread_f->fd;
