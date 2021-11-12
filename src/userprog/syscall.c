@@ -60,7 +60,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 
       check_valid((const void *)get_ith_arg(f, 0));
-      f->eax = exec((char *)get_ith_arg(f, 0));
+      const void *vcmd_line = (const void *)get_ith_arg(f, 0);
+      const void *cmd_line = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           vcmd_line);
+      f->eax = exec((char *)cmd_line);
 
     }
     break;

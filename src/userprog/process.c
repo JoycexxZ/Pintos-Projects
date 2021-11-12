@@ -80,11 +80,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  if (argv == NULL)
-  {
-    return TID_ERROR;
-  }
-
   //enum intr_level old_level = intr_disable();
 
   token = strtok_r(file_name, " ", &save_ptr);
