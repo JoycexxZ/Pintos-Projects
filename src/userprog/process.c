@@ -23,7 +23,10 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void find_thread_by_tid (struct thread *matching, void * aux UNUSED);
 
+/* The target tid when calling `find_thread_by_tid ()`. */
 static tid_t target_tid;
+
+/* The matched thread when calling `find_thread_by_tid ()`. */
 static struct thread * find_it;
 
 /* Starts a new thread running a user program loaded from
