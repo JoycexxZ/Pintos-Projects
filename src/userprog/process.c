@@ -163,11 +163,12 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   struct thread *child_thread = NULL;
-
-  if (list_empty(&thread_current()->child_list))
+  struct thread *cur = thread_current();
+  lock_acquire(&cur->child_list_lock);
+  if (list_empty(&cur->child_list))
     return -1;
   
-  for (struct list_elem * i = list_begin(&thread_current()->child_list); i != list_end(&thread_current()->child_list); i = list_next(i))
+  for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
     if (list_entry(i, struct thread, child_elem)->tid == child_tid)
     {
@@ -175,14 +176,15 @@ process_wait (tid_t child_tid UNUSED)
       break;
     }
   }
-
+  lock_release(&cur->child_list_lock);
   if (child_thread == NULL)
     return -1;
 
+  int status = child_thread->exit_status;
   list_remove(&child_thread->child_elem);
   sema_down(&child_thread->waiting_process);
 
-  return child_thread->exit_status;
+  return status;
 }
 
 /* Free the current process's resources. */

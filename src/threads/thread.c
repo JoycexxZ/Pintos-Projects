@@ -469,6 +469,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
   list_init(&t->files);
   sema_init(&t->waiting_process, 0);
+  lock_init(&t->child_list_lock);
 
   t->fd = 2;
   t->exit_status = -1;

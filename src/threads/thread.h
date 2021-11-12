@@ -101,6 +101,7 @@ struct thread
     struct list_elem child_elem;
     struct semaphore waiting_process;
     struct list files;
+    struct lock child_list_lock;
     int fd;
     int exit_status;
 #endif

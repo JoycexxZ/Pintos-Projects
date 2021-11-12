@@ -182,7 +182,7 @@ exit (int status)
     int fd = list_entry (e, struct thread_file, f_listelem)->fd;
     close (fd);
   }
-  thread_current()->exit_status = status;
+  cur->exit_status = status;
   thread_exit();
 }
 
