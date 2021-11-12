@@ -98,16 +98,16 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct list child_list;
-    struct list_elem child_elem;
-    struct semaphore waiting_process;
-    struct list files;
-    struct file *file;
-    struct lock child_list_lock;
-    struct thread *parent;
-    int child_status;
-    int fd;
-    int exit_status;
+    struct list child_list;             /* List of children threads. */
+    struct list_elem child_elem;        /* List element for children thread list. */
+    struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
+    struct list files;                  /* List of files opened by this thread. */
+    struct file *file;                  /* The executable file of this thread. */
+    struct lock child_list_lock;        /* Lock of child_list. */
+    struct thread *parent;              /* The parent thread of this thread. */
+    int child_status;                   /* The status of current waiting child thread. */
+    int fd;                             /* The available file descriptor for next file. */
+    int exit_status;                    /* The exit status of this thread. */
 #endif
 
     /* Owned by thread.c. */

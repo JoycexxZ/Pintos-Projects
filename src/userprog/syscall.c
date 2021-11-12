@@ -12,12 +12,13 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 
-
+/* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
 
 static void syscall_handler (struct intr_frame *);
 
-struct lock filesys_lock;
+/* Lock of the file system. */
+static struct lock filesys_lock;
 
 static struct thread_file*
 find_file_by_fd (int fd)

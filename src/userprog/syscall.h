@@ -4,13 +4,15 @@
 #include "filesys/file.h"
 #include <list.h>
 
+/* Process id number pid for convenience. */
 typedef int pid_t;
 
+/* A file possessed by a thread (user program). */
 struct thread_file
 {
-    struct file *f;
-    struct list_elem f_listelem;
-    int fd;
+    struct file *f;                   /* The file. */
+    struct list_elem f_listelem;      /* List element for file list of thread. */
+    int fd;                           /* The file descriptor. */
 };
 
 void syscall_init (void);
