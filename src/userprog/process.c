@@ -93,7 +93,7 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   char* token, *save_ptr;
-  char* argv[25];
+  char* argv[45];
   int argc = 0;
   
   /* Initialize interrupt frame and load executable. */
