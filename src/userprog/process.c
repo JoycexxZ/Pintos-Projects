@@ -59,12 +59,19 @@ process_execute (const char *file_name)
   }
 
   target_tid = tid;
+  struct child_thread * child_thread = (struct child_thread *)malloc (sizeof(struct child_thread));
   enum intr_level old_level = intr_disable();
   thread_foreach(*find_thread_by_tid, NULL);
-  list_push_back(&thread_current()->child_list, &find_it->child_elem);
+  child_thread->tid = tid;
+  child_thread->t = find_it;
+  child_thread->exit_status = -1;
+  list_push_back(&thread_current()->child_list, &child_thread->child_elem);
   find_it->parent = thread_current();
   intr_set_level(old_level);
+  sema_down(&thread_current()->load_sema);
   
+  if (thread_current()->load_success == 0)
+    tid = -1;
 
   return tid;
 }
@@ -102,18 +109,18 @@ start_process (void *file_name_)
     argc++;
   }
 
-  request_load((char *) argv[0]);
-
   success = load (argv[0], &if_.eip, &if_.esp);
 
-  load_finish ((char *) argv[0]);
-  printf ("load finish! success: %d\n", success);
+  sema_up(&thread_current()->parent->load_sema);
 
   if (!success) 
   {
+    thread_current()->parent->load_success = 0;
     palloc_free_page (file_name_);
     exit(-1);
   }
+  thread_current()->parent->load_success = 1;
+
 
   char* arg_add[argc];
   for (int i = argc-1; i>=0; i--)
@@ -172,17 +179,18 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  struct thread *child_thread = NULL;
+  struct child_thread *child_thread = NULL;
   struct thread *cur = thread_current();
   lock_acquire(&cur->child_list_lock);
   if (list_empty(&cur->child_list))
     return -1;
   
+
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
-    if (list_entry(i, struct thread, child_elem)->tid == child_tid)
+    if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
     {
-      child_thread = list_entry(i, struct thread, child_elem);
+      child_thread = list_entry(i, struct child_thread, child_elem);
       break;
     }
   }
@@ -190,10 +198,19 @@ process_wait (tid_t child_tid UNUSED)
   if (child_thread == NULL)
     return -1;
 
-  
+  sema_down(&child_thread->t->waiting_process);
+
+  for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
+  {
+    if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
+    {
+      child_thread = list_entry(i, struct child_thread, child_elem);
+      break;
+    }
+  }
+  int status = child_thread->exit_status;
   list_remove(&child_thread->child_elem);
-  sema_down(&child_thread->waiting_process);
-  int status = cur->child_status;
+  free(child_thread);
 
   return status;
 }
@@ -217,10 +234,19 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      printf("%s: exit(%d)\n",cur->name, cur->exit_status);
-      /*struct file* file_t = filesys_open (cur->name);
-      file_t->deny_write = 1;
-      file_allow_write(file_t);*/
+      if (cur->has_exit == 0)
+        printf("%s: exit(%d)\n",cur->name, cur->exit_status);
+      struct child_thread *child_thread = NULL;
+      for (struct list_elem * i = list_begin(&cur->parent->child_list); i != list_end(&cur->parent->child_list); i = list_next(i))
+      {
+        if (list_entry(i, struct child_thread, child_elem)->tid == cur->tid)
+        {
+          child_thread = list_entry(i, struct child_thread, child_elem);
+          break;
+        }
+      }
+      if (child_thread != NULL)
+        child_thread->exit_status = cur->exit_status;
       file_close(cur->file);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
@@ -562,7 +588,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }

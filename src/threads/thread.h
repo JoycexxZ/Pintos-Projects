@@ -16,6 +16,16 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+struct child_thread
+{
+   struct thread *t;
+   int tid;
+   int exit_status;
+   //struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
+   struct list_elem child_elem;        /* List element for children thread list. */
+};
+
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -101,13 +111,16 @@ struct thread
     struct list child_list;             /* List of children threads. */
     struct list_elem child_elem;        /* List element for children thread list. */
     struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
+    struct semaphore load_sema;
     struct list files;                  /* List of files opened by this thread. */
     struct file *file;                  /* The executable file of this thread. */
     struct lock child_list_lock;        /* Lock of child_list. */
     struct thread *parent;              /* The parent thread of this thread. */
+    int load_success;
     int child_status;                   /* The status of current waiting child thread. */
     int fd;                             /* The available file descriptor for next file. */
     int exit_status;                    /* The exit status of this thread. */
+    int has_exit;
 #endif
 
     /* Owned by thread.c. */
@@ -149,8 +162,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
-void request_load (char *file_name);
-void load_finish (char * file_name);
 
 #endif /* threads/thread.h */

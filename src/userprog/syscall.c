@@ -61,6 +61,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       const void *vcmd_line = (const void *)get_ith_arg(f, 0);
       check_valid(vcmd_line);
+      check_valid(vcmd_line+4);
       const void *cmd_line = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            vcmd_line);
       f->eax = exec((char *)cmd_line);
@@ -184,7 +185,8 @@ exit (int status)
     close (fd);
   }
   cur->exit_status = status;
-  cur->parent->child_status = status;
+  printf("%s: exit(%d)\n",cur->name, cur->exit_status);
+  cur->has_exit = 1;
   thread_exit();
 }
 
@@ -240,7 +242,7 @@ open (const char *file)
   if (f == NULL)
   {
     lock_release(&filesys_lock);
-    exit(-1);
+    return -1;
   }
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));

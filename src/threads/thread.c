@@ -38,7 +38,6 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
-static struct list exe_file_list;
 
 struct exe_file
 {
@@ -295,8 +294,9 @@ thread_exit (void)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  sema_up(&thread_current()->waiting_process);
+  struct thread *cur = thread_current();
   process_exit ();
+  sema_up(&cur->waiting_process);
 #endif
 
   /* Remove thread from all threads list, set our status to dying,
@@ -482,9 +482,12 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->files);
   sema_init(&t->waiting_process, 0);
   lock_init(&t->child_list_lock);
+  sema_init(&t->load_sema, 0);
+  t->load_success = 0;
 
   t->fd = 2;
   t->exit_status = -1;
+  t->has_exit = 0;
 #endif
 
   old_level = intr_disable ();
@@ -602,54 +605,3 @@ allocate_tid (void)
   return tid;
 }
 
-void
-request_load (char *file_name)
-{
-  enum intr_level old_level = intr_disable();
-  struct exe_file *find = NULL;
-  for (struct list_elem *i = list_begin(&exe_file_list); 
-        i != list_end(&exe_file_list); i = list_next(i))
-  {
-    struct exe_file *f = list_entry(i, struct exe_file, elem);
-    int flag = strcmp(f->file_name, file_name);
-    //printf("strcmp(%s, %s) = %d\n",f->file_name,file_name, flag);
-    if (flag == 0)
-    {
-      find = f;
-      break;
-    }
-  }
-
-  if (find == NULL)
-  {
-    size_t size = sizeof (char) * (strlen (file_name) + 1);
-    find = (struct exe_file *)malloc (sizeof (struct exe_file));
-    find->file_name = (char *)malloc (size);
-    memcpy ((void *)find->file_name, (const void *)file_name, size);
-    lock_init(&find->file_sema);
-    list_push_back(&exe_file_list, &find->elem);
-  }
-  intr_set_level(old_level);
-  lock_acquire(&find->file_sema);
-}
-
-void
-load_finish (char * file_name)
-{
-  
-  for (struct list_elem *i = list_begin(&exe_file_list); 
-        i != list_end(&exe_file_list); i = list_next(i))
-  {
-    struct exe_file *f = list_entry(i, struct exe_file, elem);
-    if (strcmp(f->file_name, file_name) == 0)
-    {
-      lock_release (&f->file_sema);
-      break;
-    }
-  }
-
-}
-
-/* Offset of `stack' member within `struct thread'.
-   Used by switch.S, which can't figure it out on its own. */
-uint32_t thread_stack_ofs = offsetof (struct thread, stack);
