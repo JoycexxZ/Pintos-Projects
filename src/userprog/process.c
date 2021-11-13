@@ -130,6 +130,7 @@ start_process (void *file_name_)
   thread_current()->parent->load_success = 1;
 
 
+  /* Adding args to esp*/
   char* arg_add[argc];
   for (int i = argc-1; i>=0; i--)
   {
@@ -139,6 +140,7 @@ start_process (void *file_name_)
     arg_add[i] = (char*)if_.esp;
   }
 
+  /* word-align */
   while ((int)if_.esp % 4 != 0)
   {
     if_.esp--;
@@ -147,18 +149,22 @@ start_process (void *file_name_)
   if_.esp -= 4;
   *(int*)if_.esp = 0;
    
+  /* Adding args address */
   for (int i = argc-1; i>=0; i--)
   {
     if_.esp -= 4;
     *(char**)if_.esp = arg_add[i];
   }
   
+  /* argv */
   if_.esp -= 4;
   *(char**)if_.esp = (char*)if_.esp + 4;
 
+  /* argc */
   if_.esp -= 4;
   *(int*)if_.esp = argc;
 
+  /* return address */
   if_.esp -= 4;
   *(int*)if_.esp = 0;
 
@@ -193,7 +199,7 @@ process_wait (tid_t child_tid UNUSED)
   if (list_empty(&cur->child_list))
     return -1;
   
-
+  /* Getting the child thread waiting for*/
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
     if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
@@ -206,8 +212,10 @@ process_wait (tid_t child_tid UNUSED)
   if (child_thread == NULL)
     return -1;
 
+  /* Do waiting */
   sema_down(&child_thread->t->waiting_process);
 
+  /* Get the return status and remove the child thread */
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
     if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
@@ -247,6 +255,7 @@ process_exit (void)
         printf("%s: exit(%d)\n",cur->name, cur->exit_status);
 
       struct child_thread *child_thread = NULL;
+      /* Save the exit status into a struct before exit */
       if (cur->parent != NULL)
       {
         for (struct list_elem * i = list_begin(&cur->parent->child_list); i != list_end(&cur->parent->child_list); i = list_next(i))
@@ -472,6 +481,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
   if (success == true)
   {
+    /* Deny the file and add to the thread struct */
     thread_current()->file = file;
     file_deny_write (file);
   }

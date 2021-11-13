@@ -16,12 +16,12 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+/* Store the exit status and tid for each child thread */
 struct child_thread
 {
-   struct thread *t;
-   int tid;
-   int exit_status;
-   //struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
+   struct thread *t;                   /* Point to the child thread */
+   int tid;                            /* The tid of this child thread */
+   int exit_status;                    /* The exit status of this child thread*/
    struct list_elem child_elem;        /* List element for children thread list. */
 };
 
@@ -109,18 +109,17 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct list child_list;             /* List of children threads. */
-    struct list_elem child_elem;        /* List element for children thread list. */
     struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
-    struct semaphore load_sema;
+    struct semaphore load_sema;         /* Semaphore of loading an execute file */
     struct list files;                  /* List of files opened by this thread. */
     struct file *file;                  /* The executable file of this thread. */
     struct lock child_list_lock;        /* Lock of child_list. */
     struct thread *parent;              /* The parent thread of this thread. */
-    int load_success;
+    int load_success;                   /* The flag of load success or not */
     int child_status;                   /* The status of current waiting child thread. */
     int fd;                             /* The available file descriptor for next file. */
     int exit_status;                    /* The exit status of this thread. */
-    int has_exit;
+    int has_exit;                       /* The flag of print exit msg */
 #endif
 
     /* Owned by thread.c. */
