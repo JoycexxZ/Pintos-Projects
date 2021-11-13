@@ -234,6 +234,15 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+
+      /*if (!list_empty(&cur->child_list))
+      {
+        for (struct list_elem *i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
+        {
+          process_wait(list_entry(i, struct child_thread, child_elem)->tid);
+        }
+      }*/
+      
       if (cur->has_exit == 0)
         printf("%s: exit(%d)\n",cur->name, cur->exit_status);
       struct child_thread *child_thread = NULL;
