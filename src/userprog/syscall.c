@@ -184,6 +184,14 @@ exit (int status)
     int fd = list_entry (e, struct thread_file, f_listelem)->fd;
     close (fd);
   }
+
+  while (!list_empty(&cur->child_list))
+  {
+    struct list_elem *i = list_begin(&cur->child_list);
+    struct child_thread * this_child = list_entry(i, struct child_thread, child_elem);
+    this_child->t->parent = NULL;
+    free(this_child);
+  }
   cur->exit_status = status;
   printf("%s: exit(%d)\n",cur->name, cur->exit_status);
   cur->has_exit = 1;
@@ -194,6 +202,9 @@ pid_t
 exec (const char *cmd_line)
 {
   if (!cmd_line)
+    return -1;
+
+  if (check_all_list() > 40)
     return -1;
 
   lock_acquire(&filesys_lock);

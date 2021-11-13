@@ -57,7 +57,9 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy); 
     return tid;
   }
-
+  
+  /*Find the thread with tid and add it to the child thread of the running thread. 
+  And we will block the running thread until the child thread finish loading*/
   target_tid = tid;
   struct child_thread * child_thread = (struct child_thread *)malloc (sizeof(struct child_thread));
   enum intr_level old_level = intr_disable();
@@ -70,8 +72,14 @@ process_execute (const char *file_name)
   intr_set_level(old_level);
   sema_down(&thread_current()->load_sema);
   
+  /*If the child thread load fail return -1*/
   if (thread_current()->load_success == 0)
+  {
     tid = -1;
+    list_remove(&child_thread->child_elem);
+    free(child_thread);
+  }
+
 
   return tid;
 }
@@ -94,8 +102,8 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  //enum intr_level old_level = intr_disable();
-
+  
+  /* Using strtok_r get the file name and the args*/
   token = strtok_r(file_name, " ", &save_ptr);
   argv[argc] = token;
   argc++;
@@ -110,7 +118,7 @@ start_process (void *file_name_)
   }
 
   success = load (argv[0], &if_.eip, &if_.esp);
-
+  /* Tell mian process load complete*/
   sema_up(&thread_current()->parent->load_sema);
 
   if (!success) 
@@ -234,25 +242,21 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-
-      /*if (!list_empty(&cur->child_list))
-      {
-        for (struct list_elem *i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
-        {
-          process_wait(list_entry(i, struct child_thread, child_elem)->tid);
-        }
-      }*/
       
       if (cur->has_exit == 0)
         printf("%s: exit(%d)\n",cur->name, cur->exit_status);
+
       struct child_thread *child_thread = NULL;
-      for (struct list_elem * i = list_begin(&cur->parent->child_list); i != list_end(&cur->parent->child_list); i = list_next(i))
+      if (cur->parent != NULL)
       {
-        if (list_entry(i, struct child_thread, child_elem)->tid == cur->tid)
+        for (struct list_elem * i = list_begin(&cur->parent->child_list); i != list_end(&cur->parent->child_list); i = list_next(i))
         {
-          child_thread = list_entry(i, struct child_thread, child_elem);
-          break;
-        }
+          if (list_entry(i, struct child_thread, child_elem)->tid == cur->tid)
+          {
+            child_thread = list_entry(i, struct child_thread, child_elem);
+            break;
+          }
+      }
       }
       if (child_thread != NULL)
         child_thread->exit_status = cur->exit_status;
