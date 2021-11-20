@@ -4,6 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
+#include "filesys/file.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -13,6 +15,16 @@ enum thread_status
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
   };
+
+/* Store the exit status and tid for each child thread */
+struct child_thread
+{
+   struct thread *t;                   /* Point to the child thread */
+   int tid;                            /* The tid of this child thread */
+   int exit_status;                    /* The exit status of this child thread*/
+   struct list_elem child_elem;        /* List element for children thread list. */
+};
+
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -96,6 +108,18 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list child_list;             /* List of children threads. */
+    struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
+    struct semaphore load_sema;         /* Semaphore of loading an execute file */
+    struct list files;                  /* List of files opened by this thread. */
+    struct file *file;                  /* The executable file of this thread. */
+    struct lock child_list_lock;        /* Lock of child_list. */
+    struct thread *parent;              /* The parent thread of this thread. */
+    int load_success;                   /* The flag of load success or not */
+    int child_status;                   /* The status of current waiting child thread. */
+    int fd;                             /* The available file descriptor for next file. */
+    int exit_status;                    /* The exit status of this thread. */
+    int has_exit;                       /* The flag of print exit msg */
 #endif
 
     /* Owned by thread.c. */
@@ -137,5 +161,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+size_t check_all_list();
 
 #endif /* threads/thread.h */

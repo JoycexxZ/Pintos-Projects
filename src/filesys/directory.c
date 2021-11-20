@@ -5,6 +5,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+//#include "threads/interrupt.h"
+//#include "threads/synch.h"
 
 /* A directory. */
 struct dir 
@@ -94,10 +96,13 @@ lookup (const struct dir *dir, const char *name,
 {
   struct dir_entry e;
   size_t ofs;
+  //struct lock locallock;
+  //lock_init(&locallock);
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  //lock_acquire(&locallock);
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
     if (e.in_use && !strcmp (name, e.name)) 
@@ -106,8 +111,10 @@ lookup (const struct dir *dir, const char *name,
           *ep = e;
         if (ofsp != NULL)
           *ofsp = ofs;
+        //lock_release(&locallock);
         return true;
       }
+  //lock_release(&locallock);
   return false;
 }
 
