@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "pagedir.h": "c",
+        "palloc.h": "c"
+    }
+}
