@@ -2,6 +2,7 @@
 #define VM_PAGE_H
 
 #include "threads/thread.h"
+#include "threads/palloc.h"
 
 
 struct sup_page_table_entry {
@@ -21,7 +22,7 @@ struct sup_page_table
 };
 
 
-struct sup_page_table_entry sup_page_table_look_up (struct sup_page_table table, void *vaddr);
+struct sup_page_table_entry * sup_page_table_look_up (struct sup_page_table *table, void *vaddr);
 struct sup_page_table * sup_page_table_init();
 void sup_page_table_destroy(struct sup_page_table *table);
 void sup_page_create (void *upage, enum palloc_flags flag);
