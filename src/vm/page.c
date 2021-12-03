@@ -45,7 +45,7 @@ sup_page_table_destroy(struct sup_page_table *table)
 }
 
 struct sup_page_table_entry *
-sup_page_create (void *upage, enum palloc_flags flag)
+sup_page_create (void *upage, enum palloc_flags flag, bool writable)
 {
 
     ASSERT(is_user_vaddr(upage));
@@ -64,6 +64,7 @@ sup_page_create (void *upage, enum palloc_flags flag)
     entry->owner = thread_current ();
     entry->vadd = upage;
     entry->flag = flag;
+    entry->writable = writable;
     list_push_back(page_table, &entry->elem);
 
     lock_release(&entry->page_lock);
@@ -87,14 +88,14 @@ sup_page_activate (struct sup_page_table_entry *entry)
     lock_acquire (&entry->page_lock);
     if (pagedir_get_page(entry->owner->pagedir, entry->vadd)) {
         lock_release (&entry->page_lock);
-        return true;
+        return false;
     }
 
     void *frame = frame_get_page(entry->flag, entry);
 
     ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
     ASSERT (pg_ofs (frame) == 0);
-    if(!pagedir_set_page(entry->owner->pagedir, entry->vadd, frame, true)){
+    if(!pagedir_set_page(entry->owner->pagedir, entry->vadd, frame, entry->writable)){
         lock_release (&entry->page_lock);
         return false;
     }

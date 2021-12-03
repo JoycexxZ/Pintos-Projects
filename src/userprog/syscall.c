@@ -163,7 +163,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
       //check_valid_rw(buffer_head, f);
       //check_valid_rw(buffer_tail, f);
-
+      struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, buffer_head);
+      if (!entry->writable) 
+        exit(-1);
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
       f->eax = read (fd, (void *)buffer, size);
@@ -439,7 +441,7 @@ check_valid_rw(void *add, struct intr_frame *f)
   struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
 
   if (entry == NULL && f->esp - 33 < add && add < f->esp + PGSIZE*100)
-    entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO);
+    entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
 
   sup_page_activate(entry);
 }

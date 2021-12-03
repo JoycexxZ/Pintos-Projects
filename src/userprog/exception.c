@@ -174,7 +174,7 @@ page_fault (struct intr_frame *f)
    struct sup_page_table_entry *entry = sup_page_table_look_up(table, fault_addr);
 
    if (entry == NULL && f->esp - 33 < fault_addr && fault_addr < f->esp + PGSIZE*100)
-      entry = sup_page_create(fault_page, PAL_USER|PAL_ZERO);
+      entry = sup_page_create(fault_page, PAL_USER|PAL_ZERO, true);
    
    if (!sup_page_activate(entry))
    {

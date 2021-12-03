@@ -579,7 +579,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
 
-      struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER);
+      struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER, writable);
       if (sup_page_activate(entry) == false)
         return false;
 
@@ -620,7 +620,7 @@ setup_stack (void **esp)
   bool success = false;
   uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
-  struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER | PAL_ZERO);
+  struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER | PAL_ZERO, true);
   success = sup_page_activate(entry);
   if (success)
     *esp = PHYS_BASE;
