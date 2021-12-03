@@ -87,7 +87,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
     lock_acquire (&entry->page_lock);
     if (pagedir_get_page(entry->owner->pagedir, entry->vadd)) {
         lock_release (&entry->page_lock);
-        return false;
+        return true;
     }
 
     void *frame = frame_get_page(entry->flag, entry);

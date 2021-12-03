@@ -159,9 +159,11 @@ page_fault (struct intr_frame *f)
       return;
    }
 
-   if (!is_user_vaddr(fault_addr) || fault_addr == NULL || 
-       f->esp - 33 > fault_addr || fault_addr > f->esp + PGSIZE*100 )
-      exit(-1);
+   if (!is_user_vaddr(fault_addr) || fault_addr == NULL)
+      {
+         exit(-1);
+
+      }
    
 
    struct thread *cur = thread_current();
@@ -171,11 +173,13 @@ page_fault (struct intr_frame *f)
 
    struct sup_page_table_entry *entry = sup_page_table_look_up(table, fault_addr);
 
-   if (entry == NULL)
+   if (entry == NULL && f->esp - 33 < fault_addr && fault_addr < f->esp + PGSIZE*100)
       entry = sup_page_create(fault_page, PAL_USER|PAL_ZERO);
    
    if (!sup_page_activate(entry))
+   {
       exit(-1);
+   }
 
    return;
 

@@ -80,8 +80,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       unsigned size = (unsigned) get_ith_arg(f, 2);
       //const void *buffer_tail = ((const void *) buffer_head) + (size-1)*4;
       
-      check_valid(buffer_head);
-      //check_valid(buffer_tail);
+      for (size_t i = 0; i < size ; i++)
+      {
+        check_valid_rw(buffer_head + i, f);  
+      }
+      
+      //check_valid_rw(buffer_tail, f);
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
@@ -153,8 +157,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       unsigned size = (unsigned) get_ith_arg(f, 2);
       //const void *buffer_tail = ((const void *) buffer_head) + (size - 1)*4;
       
-      check_valid(buffer_head);
-      //check_valid(buffer_tail);
+      for (size_t i = 0; i < size ; i++)
+      {
+        check_valid_rw(buffer_head + i, f);  
+      }
+      //check_valid_rw(buffer_head, f);
+      //check_valid_rw(buffer_tail, f);
 
       const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            buffer_head);
@@ -418,8 +426,22 @@ void
 check_valid (const void *add)
 {
   if (!is_user_vaddr(add) || add == NULL || 
-      pagedir_get_page(thread_current()->pagedir, add) == NULL || add < (void *)VADD_LIMIT)
+      sup_page_table_look_up(thread_current()->sup_page_table, add) == NULL || add < (void *)VADD_LIMIT)
       exit(-1);
+}
+
+void
+check_valid_rw(void *add, struct intr_frame *f)
+{
+  if (!is_user_vaddr(add) || add == NULL)
+    exit(-1);
+
+  struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
+
+  if (entry == NULL && f->esp - 33 < add && add < f->esp + PGSIZE*100)
+    entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO);
+
+  sup_page_activate(entry);
 }
 
 /* Get the ith arg for the given f */
