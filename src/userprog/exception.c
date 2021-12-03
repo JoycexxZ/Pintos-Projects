@@ -5,6 +5,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -157,8 +159,25 @@ page_fault (struct intr_frame *f)
       return;
    }
 
-   if (!is_user_vaddr(fault_addr))
+   if (!is_user_vaddr(fault_addr) || fault_addr == NULL || 
+       f->esp - 33 > fault_addr || fault_addr > f->esp + PGSIZE*100 )
+      exit(-1);
+   
 
+   struct thread *cur = thread_current();
+   void *fault_page = pg_round_down(fault_addr);
+   uint32_t *pd = cur->pagedir;
+   struct sup_page_table *table = cur->sup_page_table;
+
+   struct sup_page_table_entry *entry = sup_page_table_look_up(table, fault_addr);
+
+   if (entry == NULL)
+      entry = sup_page_create(fault_page, PAL_USER|PAL_ZERO);
+   
+   if (!sup_page_activate(entry))
+      exit(-1);
+
+   return;
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
