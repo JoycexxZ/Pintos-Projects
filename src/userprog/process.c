@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -270,9 +271,11 @@ process_exit (void)
       if (child_thread != NULL)
         child_thread->exit_status = cur->exit_status;
       file_close(cur->file);
+      sup_page_table_destroy(cur->sup_page_table);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
-      pagedir_destroy (pd);
+      palloc_free_page (pd);
+      // pagedir_destroy (pd);
     }
 }
 
@@ -378,6 +381,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
+    goto done;
+
+  t->sup_page_table = sup_page_table_init ();
+  if (t->sup_page_table == NULL) 
     goto done;
   process_activate ();
 
@@ -489,7 +496,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     file_close (file);
   return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -571,24 +578,30 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+
+      struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER);
+      if (sup_page_activate(entry) == false)
+        return false;
+
+      uint8_t *kpage = entry->frame;
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          // palloc_free_page (kpage);
+          page_destroy_by_elem(entry->owner->sup_page_table, entry);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
       /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
+      // if (!install_page (upage, kpage, writable)) 
+      //   {
+      //     palloc_free_page (kpage);
+      //     return false; 
+      //   }
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -605,7 +618,15 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
+  uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
+  struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER | PAL_ZERO);
+  success = sup_page_activate(entry);
+  if (success)
+    *esp = PHYS_BASE;
+  else
+    page_destroy_by_elem(entry->owner->sup_page_table, entry);
+/*
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -615,6 +636,7 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+*/
   return success;
 }
 

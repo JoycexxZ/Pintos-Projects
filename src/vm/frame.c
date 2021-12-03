@@ -25,8 +25,8 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
         f->frame = page;
         f->vpage = vpage;
 
-        pagedir_set_accessed(*vpage->pagedir, page, false);
-        pagedir_set_dirty(*vpage->pagedir, page, false);
+        pagedir_set_accessed(vpage->owner->pagedir, page, false);
+        pagedir_set_dirty(vpage->owner->pagedir, page, false);
 
         lock_acquire(&frame_table_lock);
         list_push_back(&frame_table, &f->elem);
@@ -44,13 +44,13 @@ frame_free_page(void* page)
         struct frame_table_entry *temp = list_entry(i, struct frame_table_entry, elem);
         if (temp->frame == (uint32_t*)page)
         {
+            palloc_free_page(page);
             lock_acquire(&frame_table_lock);
             list_remove(&temp->elem);
             lock_release(&frame_table_lock);
             free(temp);
-            palloc_free_page(page);
-        }
-        
+            return;
+        } 
     }
     
 }
