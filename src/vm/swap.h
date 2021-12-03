@@ -6,11 +6,14 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
-struct bitmap swap_map;
+#define PAGE_SECTOR_NUM (PGSIZE/BLOCK_SECTOR_SIZE)
+
+
+struct bitmap* swap_map;
 struct lock swap_map_lock;
 
 void swap_init(void);
-void swap_from_disk(block_sector_t t, void *vaddr_p);
-block_sector_t swap_to_disk(void *kpage);
+size_t swap_to_disk(void *kpage);
+void swap_from_disk(size_t index, void *kaddr);
 
 #endif /* vm/swap.h */

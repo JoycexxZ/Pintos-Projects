@@ -18,7 +18,7 @@ struct sup_page_table_entry {
     union entry_data
     {
         uint32_t* frame;
-        block_sector_t block_sector;
+        size_t swap_index;
     }value;
 
     enum sup_page_table_entry_status status;

@@ -2,6 +2,10 @@
     "files.associations": {
         "pagedir.h": "c",
         "palloc.h": "c",
-        "synch.h": "c"
+        "synch.h": "c",
+        "block.h": "c",
+        "vaddr.h": "c",
+        "limits.h": "c",
+        "bitmap.h": "c"
     }
 }
