@@ -3,14 +3,25 @@
 
 #include "threads/thread.h"
 #include "threads/palloc.h"
+#include "devices/block.h"
+
+enum sup_page_table_entry_status{
+    FRAME,
+    SWAP
+};
 
 struct sup_page_table_entry {
     struct thread* owner;    
     void* vadd;
     enum palloc_flags flag;
 
-    uint32_t* frame;
+    union entry_data
+    {
+        uint32_t* frame;
+        block_sector_t block_sector;
+    }value;
 
+    enum sup_page_table_entry_status status;
     struct lock page_lock;
     struct list_elem elem;
 };

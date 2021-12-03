@@ -583,7 +583,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (sup_page_activate(entry) == false)
         return false;
 
-      uint8_t *kpage = entry->frame;
+      uint8_t *kpage = entry->value.frame;
       if (kpage == NULL)
         return false;
 

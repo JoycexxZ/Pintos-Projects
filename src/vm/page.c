@@ -98,7 +98,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
         lock_release (&entry->page_lock);
         return false;
     }
-    entry->frame = frame;
+    entry->value.frame = frame;
 
     lock_release (&entry->page_lock);
     return true;
@@ -113,8 +113,8 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
     lock_acquire (&table->table_lock);
     list_remove (&entry->elem);
 
-    if (entry->frame != NULL){
-        frame_free_page (entry->frame);
+    if (entry->value.frame != NULL){
+        frame_free_page (entry->value.frame);
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
 

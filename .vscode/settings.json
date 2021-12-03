@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "pagedir.h": "c",
-        "palloc.h": "c"
+        "palloc.h": "c",
+        "synch.h": "c"
     }
 }
