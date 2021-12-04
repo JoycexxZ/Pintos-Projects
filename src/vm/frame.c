@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "userprog/pagedir.h"
+#include "vm/swap.h"
 
 
 void
@@ -15,9 +16,8 @@ frame_table_init()
 struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
+GET_PAGE:
     void* page = palloc_get_page(flag);
-
-    /* swop */
 
     if (page != NULL)
     {
@@ -33,6 +33,10 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
         lock_release(&frame_table_lock);
         return f;
     }
+
+    /* evict */
+    evict_frame ();
+    goto GET_PAGE;
 
     return NULL;
 }
@@ -52,6 +56,36 @@ frame_free_page(void* page)
             free(temp);
             return;
         } 
+    } 
+}
+
+void
+evict_frame()
+{
+    if (frame_table_evict_ptr == NULL)
+        frame_table_evict_ptr = list_begin (&frame_table);
+
+    while (true)
+    {
+        struct frame_table_entry* f = list_entry (frame_table_evict_ptr, struct frame_table_entry, elem);
+        if (f->swap_able){
+            if (!f->last_used){
+                size_t idx = swap_to_disk ((void *)f->frame);
+                f->vpage->status = SWAP;
+                f->vpage->value.swap_index = idx;
+                frame_free_page (f->frame);
+                frame_table_evict_ptr = list_next (&frame_table_evict_ptr);
+                if (frame_table_evict_ptr == list_end)
+                    frame_table_evict_ptr = list_begin (&frame_table);
+                        break;
+            }
+            else{
+                f->last_used = !f->last_used;
+            }
+        }
+        frame_table_evict_ptr = list_next (&frame_table_evict_ptr);
+        if (frame_table_evict_ptr == list_end)
+            frame_table_evict_ptr = list_begin (&frame_table);
     }
     
 }

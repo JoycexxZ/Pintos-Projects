@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
 #include "threads/pte.h"
@@ -16,6 +17,9 @@ sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
         struct sup_page_table_entry *temp = list_entry(i, struct sup_page_table_entry, elem);
         if ((uint32_t)(temp->vadd) >> 12 == (uint32_t)vaddr >> 12)
         {
+            if (temp->status == FRAME){
+                temp->value.frame->last_used = true;
+            }
             return temp;
         }
     }
@@ -65,6 +69,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
     entry->vadd = upage;
     entry->flag = flag;
     entry->writable = writable;
+    entry->status = EMPTY;
     list_push_back(page_table, &entry->elem);
 
     lock_release(&entry->page_lock);
@@ -100,7 +105,13 @@ sup_page_activate (struct sup_page_table_entry *entry)
         lock_release (&entry->page_lock);
         return false;
     }
+
+    if (entry->status == SWAP){
+        swap_from_disk (entry->value.swap_index, frame);
+    }
+
     entry->value.frame = frame_entry;
+    entry->status = FRAME;
 
     lock_release (&entry->page_lock);
     return true;
@@ -115,7 +126,7 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
     lock_acquire (&table->table_lock);
     list_remove (&entry->elem);
 
-    if (entry->value.frame != NULL){
+    if (entry->status == FRAME && entry->value.frame != NULL){
         frame_free_page (entry->value.frame->frame);
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
@@ -130,7 +141,7 @@ page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
     ASSERT(entry != NULL);
 
     lock_acquire(&entry->page_lock);
-    if (entry->value.frame->frame != NULL)
+    if (entry->status == FRAME && entry->value.frame->frame != NULL)
         entry->value.frame->swap_able = swap_able;
     else{
         sup_page_activate(entry);

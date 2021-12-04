@@ -19,7 +19,7 @@ swap_to_disk(void *kpage){
     size_t index = bitmap_scan_and_flip (swap_map, 0, 1, 0);
     if (index == 0 || index == BITMAP_ERROR){
         lock_release (&swap_map_lock);
-        return -1;
+        PANIC ("Disk full!");
     }
 
     struct block *block = block_get_role (BLOCK_SWAP);
