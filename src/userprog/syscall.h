@@ -17,9 +17,9 @@ struct thread_file
 
 void syscall_init (void);
 
-int get_ith_arg (struct intr_frame *f, int i);
+int get_ith_arg (struct intr_frame *f, int i, bool swap_able);
 
-void check_valid (const void *add);
+void check_valid (const void *add, bool swap_able);
 
 void halt (void);
 void exit (int status);
