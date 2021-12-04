@@ -45,8 +45,8 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  check_valid((const void *)f->esp);
-  check_valid((const void *)f->esp +4);
+  check_valid((const void *)f->esp, false);
+  check_valid((const void *)f->esp +4, false);
   
   switch (*(int *)f->esp)
   {
@@ -55,14 +55,14 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXIT:
-    exit(get_ith_arg(f, 0));
+    exit(get_ith_arg(f, 0, true));
     break;
 
   case SYS_EXEC:
     {
-      const void *vcmd_line = (const void *)get_ith_arg(f, 0);
-      check_valid(vcmd_line);
-      check_valid(vcmd_line+4);
+      const void *vcmd_line = (const void *)get_ith_arg(f, 0, true);
+      check_valid(vcmd_line, true);
+      check_valid(vcmd_line+4, true);
       const void *cmd_line = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            vcmd_line);
       f->eax = exec((char *)cmd_line);
@@ -71,19 +71,19 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_WAIT:
-    f->eax = wait((pid_t)get_ith_arg(f, 0));
+    f->eax = wait((pid_t)get_ith_arg(f, 0, true));
     break;
 
   case SYS_WRITE:
     {
-      int fd = get_ith_arg(f, 0);
-      const void *buffer_head = (const void *) get_ith_arg(f, 1);
-      unsigned size = (unsigned) get_ith_arg(f, 2);
+      int fd = get_ith_arg(f, 0, true);
+      const void *buffer_head = (const void *) get_ith_arg(f, 1, false);
+      unsigned size = (unsigned) get_ith_arg(f, 2, true);
       //const void *buffer_tail = ((const void *) buffer_head) + (size-1)*4;
       
       for (size_t i = 0; i < size ; i++)
       {
-        check_valid_rw(buffer_head + i, f);  
+        check_valid_rw(buffer_head + i, f, false);  
       }
       
       //check_valid_rw(buffer_tail, f);
@@ -96,8 +96,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     
   case SYS_OPEN:
     {
-      const void *file_ptr = (const void *)get_ith_arg (f, 0);
-      check_valid (file_ptr);
+      const void *file_ptr = (const void *)get_ith_arg (f, 0, false);
+      check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                          file_ptr);
       f->eax = open (file);
@@ -106,11 +106,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_CREATE:
     {
-      const void * file_head = (const void *)get_ith_arg(f, 0);
-      unsigned size = (unsigned) get_ith_arg(f, 1);
+      const void * file_head = (const void *)get_ith_arg(f, 0, false);
+      unsigned size = (unsigned) get_ith_arg(f, 1, true);
       //const void * file_tail = file_head + size *4;
 
-      check_valid(file_head);
+      check_valid(file_head, false);
       //check_valid(file_tail);
 
       const void *file = (const void *)pagedir_get_page (thread_current ()->pagedir, 
@@ -121,8 +121,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_REMOVE:
     {
-      const void *file_ptr = (const void *)get_ith_arg(f, 0);
-      check_valid (file_ptr);
+      const void *file_ptr = (const void *)get_ith_arg(f, 0, false);
+      check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                       file_ptr);
       f->eax = remove (file);
@@ -131,36 +131,36 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_CLOSE:
     {
-      int fd = get_ith_arg (f, 0);
+      int fd = get_ith_arg (f, 0, true);
       close (fd);
     }
     break;
 
   case SYS_FILESIZE:
-    f->eax = filesize(get_ith_arg(f, 0));
+    f->eax = filesize(get_ith_arg(f, 0, true));
     break;
 
   case SYS_SEEK:
     {
-      int fd = get_ith_arg(f, 0);
-      unsigned position = (unsigned) get_ith_arg(f, 1);
+      int fd = get_ith_arg(f, 0, true);
+      unsigned position = (unsigned) get_ith_arg(f, 1, true);
       seek(fd, position);
     }
     break;
   case SYS_TELL:
-    f->eax = tell(get_ith_arg(f, 0));
+    f->eax = tell(get_ith_arg(f, 0, true));
     break;
 
   case SYS_READ:
     {
-      int fd = get_ith_arg (f, 0);
-      const void *buffer_head = (const void *) get_ith_arg(f, 1);
-      unsigned size = (unsigned) get_ith_arg(f, 2);
+      int fd = get_ith_arg (f, 0, true);
+      const void *buffer_head = (const void *) get_ith_arg(f, 1, false);
+      unsigned size = (unsigned) get_ith_arg(f, 2, true);
       //const void *buffer_tail = ((const void *) buffer_head) + (size - 1)*4;
       
       for (size_t i = 0; i < size ; i++)
       {
-        check_valid_rw(buffer_head + i, f);  
+        check_valid_rw(buffer_head + i, f, false);  
       }
       //check_valid_rw(buffer_head, f);
       //check_valid_rw(buffer_tail, f);
