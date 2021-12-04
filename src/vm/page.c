@@ -91,7 +91,8 @@ sup_page_activate (struct sup_page_table_entry *entry)
         return false;
     }
 
-    void *frame = frame_get_page(entry->flag, entry);
+    struct frame_table_entry *frame_entry = frame_get_page(entry->flag, entry);
+    void* frame = frame_entry->frame;
 
     ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
     ASSERT (pg_ofs (frame) == 0);
@@ -99,7 +100,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
         lock_release (&entry->page_lock);
         return false;
     }
-    entry->value.frame = frame;
+    entry->value.frame = frame_entry;
 
     lock_release (&entry->page_lock);
     return true;
@@ -115,10 +116,24 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
     list_remove (&entry->elem);
 
     if (entry->value.frame != NULL){
-        frame_free_page (entry->value.frame);
+        frame_free_page (entry->value.frame->frame);
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
 
     free(entry);
     lock_release (&table->table_lock);
+}
+
+void
+page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
+{
+    ASSERT(entry != NULL);
+
+    lock_acquire(&entry->page_lock);
+    if (entry->value.frame->frame != NULL)
+        entry->value.frame->swap_able = swap_able;
+    else{
+        sup_page_activate(entry);
+    }
+    lock_release(&entry->page_lock);
 }

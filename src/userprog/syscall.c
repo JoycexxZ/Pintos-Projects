@@ -11,6 +11,7 @@
 #include "userprog/pagedir.h"
 #include "threads/malloc.h"
 #include "devices/input.h"
+#include "vm/page.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
@@ -425,15 +426,20 @@ read (int fd, void *buffer, unsigned size)
 
 /* check an address is valid or not, if not valid exit with -1.*/
 void 
-check_valid (const void *add)
+check_valid (const void *add, bool swap_able)
 {
+  struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
+
   if (!is_user_vaddr(add) || add == NULL || 
-      sup_page_table_look_up(thread_current()->sup_page_table, add) == NULL || add < (void *)VADD_LIMIT)
+      entry == NULL || add < (void *)VADD_LIMIT)
       exit(-1);
+  
+  page_set_swap_able(entry, swap_able);
+
 }
 
 void
-check_valid_rw(void *add, struct intr_frame *f)
+check_valid_rw(void *add, struct intr_frame *f, bool swap_able)
 {
   if (!is_user_vaddr(add) || add == NULL)
     exit(-1);
@@ -444,14 +450,15 @@ check_valid_rw(void *add, struct intr_frame *f)
     entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
 
   sup_page_activate(entry);
+  page_set_swap_able(entry, swap_able);
 }
 
 /* Get the ith arg for the given f */
 int 
-get_ith_arg (struct intr_frame *f, int i)
+get_ith_arg (struct intr_frame *f, int i, bool swap_able)
 {
   int *argv = (int *) f->esp + i + 1;
-  check_valid(argv);
-  check_valid((void *)argv + 3);
+  check_valid(argv, swap_able);
+  check_valid((void *)argv + 3, swap_able);
   return *argv;
 }

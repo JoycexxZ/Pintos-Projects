@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -583,7 +584,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (sup_page_activate(entry) == false)
         return false;
 
-      uint8_t *kpage = entry->value.frame;
+      uint8_t *kpage = entry->value.frame->frame;
       if (kpage == NULL)
         return false;
 

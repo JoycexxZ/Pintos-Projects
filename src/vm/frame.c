@@ -12,7 +12,7 @@ frame_table_init()
     lock_init(&frame_table_lock);
 }
 
-void*
+struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
     void* page = palloc_get_page(flag);
@@ -31,9 +31,10 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
         lock_acquire(&frame_table_lock);
         list_push_back(&frame_table, &f->elem);
         lock_release(&frame_table_lock);
+        return f;
     }
 
-    return page;
+    return NULL;
 }
 
 void

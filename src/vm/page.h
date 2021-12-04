@@ -17,7 +17,7 @@ struct sup_page_table_entry {
 
     union entry_data
     {
-        uint32_t* frame;
+        struct frame_table_entry * frame;
         size_t swap_index;
     }value;
 
@@ -41,6 +41,6 @@ struct sup_page_table_entry *sup_page_create (void *upage, enum palloc_flags fla
 void sup_page_destroy (struct sup_page_table *table, void *vadd);
 bool sup_page_activate (struct sup_page_table_entry *entry);
 void page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry *entry);
-
+void page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
 
 #endif /* vm/page.h */
