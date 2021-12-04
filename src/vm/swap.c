@@ -17,7 +17,7 @@ size_t
 swap_to_disk(void *kpage){
     lock_acquire (&swap_map_lock);
     size_t index = bitmap_scan_and_flip (swap_map, 0, 1, 0);
-    if (index == 0 || index == BITMAP_ERROR){
+    if (index == BITMAP_ERROR){
         lock_release (&swap_map_lock);
         PANIC ("Disk full!");
     }

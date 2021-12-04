@@ -16,28 +16,32 @@ frame_table_init()
 struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
-GET_PAGE:
-    void* page = palloc_get_page(flag);
-
-    if (page != NULL)
+    int temp = 2;
+    while (temp--)
     {
-        struct frame_table_entry* f = (struct frame_table_entry*)malloc(sizeof(struct frame_table_entry));
-        f->frame = page;
-        f->vpage = vpage;
+        void* page = palloc_get_page(flag);
 
-        pagedir_set_accessed(vpage->owner->pagedir, page, false);
-        pagedir_set_dirty(vpage->owner->pagedir, page, false);
+        if (page != NULL)
+        {
+            struct frame_table_entry* f = (struct frame_table_entry*)malloc(sizeof(struct frame_table_entry));
+            f->frame = page;
+            f->vpage = vpage;
+            f->last_used = 0;
+            f->swap_able = 1;
 
-        lock_acquire(&frame_table_lock);
-        list_push_back(&frame_table, &f->elem);
-        lock_release(&frame_table_lock);
-        return f;
+            pagedir_set_accessed(vpage->owner->pagedir, page, false);
+            pagedir_set_dirty(vpage->owner->pagedir, page, false);
+
+            lock_acquire(&frame_table_lock);
+            list_push_back(&frame_table, &f->elem);
+            lock_release(&frame_table_lock);
+            return f;
+        }
+
+        /* evict */
+        evict_frame ();
     }
-
-    /* evict */
-    evict_frame ();
-    goto GET_PAGE;
-
+    
     return NULL;
 }
 
@@ -74,17 +78,17 @@ evict_frame()
                 f->vpage->status = SWAP;
                 f->vpage->value.swap_index = idx;
                 frame_free_page (f->frame);
-                frame_table_evict_ptr = list_next (&frame_table_evict_ptr);
-                if (frame_table_evict_ptr == list_end)
+                frame_table_evict_ptr = list_next (frame_table_evict_ptr);
+                if (frame_table_evict_ptr == list_end (&frame_table))
                     frame_table_evict_ptr = list_begin (&frame_table);
-                        break;
+                break;
             }
             else{
                 f->last_used = !f->last_used;
             }
         }
-        frame_table_evict_ptr = list_next (&frame_table_evict_ptr);
-        if (frame_table_evict_ptr == list_end)
+        frame_table_evict_ptr = list_next (frame_table_evict_ptr);
+        if (frame_table_evict_ptr == list_end (&frame_table))
             frame_table_evict_ptr = list_begin (&frame_table);
     }
     

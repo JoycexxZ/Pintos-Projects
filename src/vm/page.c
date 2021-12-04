@@ -130,6 +130,9 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
         frame_free_page (entry->value.frame->frame);
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
+    if (entry->status == SWAP){
+        void *temp = palloc_get_page(PAL_USER | PAL_ZERO);
+    }
 
     free(entry);
     lock_release (&table->table_lock);
