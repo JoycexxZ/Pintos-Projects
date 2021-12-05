@@ -161,6 +161,7 @@ page_fault (struct intr_frame *f)
 
    if (!is_user_vaddr(fault_addr) || fault_addr == NULL)
       {
+         printf("%d\n", fault_addr);
          exit(-1);
 
       }
@@ -178,6 +179,8 @@ page_fault (struct intr_frame *f)
    
    if (!sup_page_activate(entry))
    {
+      printf("2\n");
+
       exit(-1);
    }
 

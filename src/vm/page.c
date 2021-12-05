@@ -63,6 +63,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
     }
     
     entry = (struct sup_page_table_entry*) malloc (sizeof(struct sup_page_table_entry));
+    ASSERT(entry!=NULL);
     lock_init(&entry->page_lock);
     lock_acquire (&entry->page_lock);
     entry->owner = thread_current ();
@@ -74,7 +75,6 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
 
     lock_release(&entry->page_lock);
     lock_release(&page_table->table_lock);
-    ASSERT(entry!=NULL);
     return entry;
 }
 
@@ -88,6 +88,7 @@ sup_page_destroy (struct sup_page_table *table, void *vadd)
 bool 
 sup_page_activate (struct sup_page_table_entry *entry)
 {
+    ASSERT(entry!=NULL);
     ASSERT(is_user_vaddr(entry->vadd));
     ASSERT(entry->owner->pagedir != NULL);
     lock_acquire (&entry->page_lock);
@@ -97,6 +98,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
     }
 
     struct frame_table_entry *frame_entry = frame_get_page(entry->flag, entry);
+    ASSERT(frame_entry != NULL);
     void* frame = frame_entry->frame;
 
     ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
@@ -131,7 +133,7 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
     if (entry->status == SWAP){
-        void *temp = palloc_get_page(PAL_USER | PAL_ZERO);
+        swap_from_disk(entry->value.swap_index, NULL);
     }
 
     free(entry);

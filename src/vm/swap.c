@@ -23,8 +23,8 @@ swap_to_disk(void *kpage){
     }
 
     struct block *block = block_get_role (BLOCK_SWAP);
-    for (int i = index; i < index + PAGE_SECTOR_NUM; i++){
-        block_write (block, i*BLOCK_SECTOR_SIZE, kpage);
+    for (int i = index*PAGE_SECTOR_NUM; i < index*PAGE_SECTOR_NUM + PAGE_SECTOR_NUM; i++){
+        block_write (block, i, kpage);
         kpage += BLOCK_SECTOR_SIZE;
     }
 
@@ -38,8 +38,10 @@ swap_from_disk(size_t index, void *kaddr){
     
     struct block *block = block_get_role (BLOCK_SWAP);
 
-    for (int i = index; i < index + PAGE_SECTOR_NUM; i++){
-        block_read (block, i*BLOCK_SECTOR_SIZE, kaddr);
+    for (int i = index*PAGE_SECTOR_NUM; i < index*PAGE_SECTOR_NUM + PAGE_SECTOR_NUM; i++){
+        if (kaddr == NULL)
+            continue;
+        block_read (block, i, kaddr);
         kaddr += BLOCK_SECTOR_SIZE;
     }
 

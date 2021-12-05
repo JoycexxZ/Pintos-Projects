@@ -120,7 +120,7 @@ start_process (void *file_name_)
   }
 
   success = load (argv[0], &if_.eip, &if_.esp);
-  /* Tell mian process load complete*/
+  /* Tell main process load complete*/
   sema_up(&thread_current()->parent->load_sema);
 
   if (!success) 
@@ -172,6 +172,8 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  // printf("1\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -495,6 +497,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
   else
     file_close (file);
+
+  // printf("Set!!!! : %d\n", (int)success);
+  
   return success;
 }
 
@@ -581,8 +586,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Get a page of memory. */
 
       struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER, writable);
-      if (sup_page_activate(entry) == false)
+      if (sup_page_activate(entry) == false){
+        // printf("1\n");
         return false;
+      }
 
       uint8_t *kpage = entry->value.frame->frame;
       if (kpage == NULL)
@@ -593,6 +600,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         {
           // palloc_free_page (kpage);
           page_destroy_by_elem(entry->owner->sup_page_table, entry);
+          // printf("2\n");
+
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -638,6 +647,7 @@ setup_stack (void **esp)
         palloc_free_page (kpage);
     }
 */
+  // printf("Set!!!! : %d\n", (int)success);
   return success;
 }
 

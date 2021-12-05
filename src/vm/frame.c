@@ -77,10 +77,10 @@ evict_frame()
                 size_t idx = swap_to_disk ((void *)f->frame);
                 f->vpage->status = SWAP;
                 f->vpage->value.swap_index = idx;
-                frame_free_page (f->frame);
                 frame_table_evict_ptr = list_next (frame_table_evict_ptr);
                 if (frame_table_evict_ptr == list_end (&frame_table))
                     frame_table_evict_ptr = list_begin (&frame_table);
+                frame_free_page (f->frame);
                 break;
             }
             else{
