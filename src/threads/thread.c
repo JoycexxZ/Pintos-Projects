@@ -487,7 +487,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = -1;
   t->has_exit = 0;
 #endif
-
+  list_init(&t->mmap_files);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);

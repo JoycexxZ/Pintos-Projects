@@ -4,6 +4,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
+#include <stdio.h>
 
 struct lock mmap_lock;
 int mmap_id = 0;
@@ -34,11 +35,10 @@ mmap (int fd, void *vadd)
     void *map_start = vadd;
     fd = reopen(fd);
     int page_count = 0;
-
+    int file_end = 0;
     for (size_t i = 0; i < file_size; i+=PGSIZE)
     {
         struct sup_page_table_entry *entry = sup_page_create(vadd, PAL_ZERO | PAL_USER, true);
-        int file_end = 0;
         if ((i + PGSIZE) < file_size)
             file_end = i + PGSIZE;
         else

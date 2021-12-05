@@ -3,9 +3,11 @@
 #include "vm/swap.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
+#include <string.h>
 #include "threads/pte.h"
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
+#include <stdio.h>
 
 struct sup_page_table_entry *
 sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
@@ -116,18 +118,25 @@ sup_page_activate (struct sup_page_table_entry *entry)
         swap_from_disk (entry->value.swap_index, frame);
     }
 
-    if (entry->fd != -1)
-    {
-        void *kpage = pagedir_get_page(entry->owner->pagedir, entry->vadd);
-        seek(entry->fd, entry->file_start);
-        ASSERT(entry->file_end < PGSIZE);
-        int read_size = entry->file_end - entry->file_start;
-        read(entry->fd, kpage, read_size);
-        memset(kpage + read_size, 0, PGSIZE - read_size);
-    }
-
     entry->value.frame = frame_entry;
     entry->status = FRAME;
+
+    if (entry->fd != -1)
+    {
+        ASSERT(entry->status == FRAME);
+        void *kpage = entry->value.frame->frame;
+        seek(entry->fd, entry->file_start);
+        int read_size = entry->file_end - entry->file_start;
+        ASSERT (read_size <= PGSIZE);
+        read(entry->fd, kpage, read_size);
+        memset(kpage + read_size, 0, PGSIZE - read_size);
+        
+        // page_set_swap_able(entry, false);
+
+        pagedir_set_accessed(entry->owner->pagedir, kpage, false);
+        pagedir_set_dirty(entry->owner->pagedir, kpage, false);
+    }
+
 
     lock_release (&entry->page_lock);
     return true;

@@ -18,6 +18,7 @@
 #define VADD_LIMIT 0x08048000
 
 static void syscall_handler (struct intr_frame *);
+static int FD = 2;
 
 /* Lock of the file system. */
 static struct lock filesys_lock;
@@ -304,6 +305,8 @@ open (const char *file)
     lock_release(&filesys_lock);
     return -1;
   }
+  
+  
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
   if (thread_f == NULL){
@@ -313,8 +316,7 @@ open (const char *file)
 
   struct thread *cur = thread_current ();
   thread_f->f = f;
-  thread_f->fd = cur->fd;
-  cur->fd++;
+  thread_f->fd = FD++;
   list_push_back (&cur->files, &thread_f->f_listelem);
 
   lock_release (&filesys_lock);
@@ -431,7 +433,6 @@ read (int fd, void *buffer, unsigned size)
     lock_release (&filesys_lock);
     return -1;
   }
-
   int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
   return length;
@@ -456,9 +457,8 @@ reopen(int fd)
     }
 
     struct thread *cur = thread_current ();
-    thread_f->f = f;
-    thread_f->fd = cur->fd;
-    cur->fd++;
+    thread_f->f = file;
+    thread_f->fd = FD++;
     list_push_back (&cur->files, &thread_f->f_listelem);
 
     lock_release (&filesys_lock);
