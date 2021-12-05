@@ -446,8 +446,11 @@ check_valid_rw(void *add, struct intr_frame *f, bool swap_able)
 
   struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
 
-  if (entry == NULL && f->esp - 33 < add && add < f->esp + PGSIZE*100)
-    entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
+  if (entry == NULL)
+    if (f->esp - 33 < add && add < f->esp + PGSIZE*100)
+      entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
+    else
+      exit(-1);
 
   sup_page_activate(entry);
   page_set_swap_able(entry, swap_able);
