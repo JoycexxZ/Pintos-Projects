@@ -53,6 +53,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
 {
 
     ASSERT(is_user_vaddr(upage));
+    ASSERT (pg_ofs (upage) == 0);
 
     struct sup_page_table *page_table = thread_current ()->sup_page_table;
     lock_acquire(&page_table->table_lock);
@@ -101,6 +102,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
     ASSERT(frame_entry != NULL);
     void* frame = frame_entry->frame;
 
+    ASSERT (frame != NULL);
     ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
     ASSERT (pg_ofs (frame) == 0);
     if(!pagedir_set_page(entry->owner->pagedir, entry->vadd, frame, entry->writable)){
@@ -118,7 +120,6 @@ sup_page_activate (struct sup_page_table_entry *entry)
     lock_release (&entry->page_lock);
     return true;
 }
-
 
 void 
 page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry *entry)

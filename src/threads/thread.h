@@ -24,6 +24,7 @@ struct child_thread
    int tid;                            /* The tid of this child thread */
    int exit_status;                    /* The exit status of this child thread*/
    struct list_elem child_elem;        /* List element for children thread list. */
+   bool exited;
 };
 
 

@@ -69,7 +69,11 @@ process_execute (const char *file_name)
   child_thread->tid = tid;
   child_thread->t = find_it;
   child_thread->exit_status = -1;
+  child_thread->exited = false;
+  // lock_acquire(&thread_current()->child_list_lock);
   list_push_back(&thread_current()->child_list, &child_thread->child_elem);
+  // lock_release(&thread_current()->child_list_lock);
+
   find_it->parent = thread_current();
   intr_set_level(old_level);
   sema_down(&thread_current()->load_sema);
@@ -78,8 +82,11 @@ process_execute (const char *file_name)
   if (thread_current()->load_success == 0)
   {
     tid = -1;
+    // lock_acquire(&thread_current()->child_list_lock);
     list_remove(&child_thread->child_elem);
     free(child_thread);
+    // lock_release(&thread_current()->child_list_lock);
+
   }
 
 
@@ -217,9 +224,11 @@ process_wait (tid_t child_tid UNUSED)
     return -1;
 
   /* Do waiting */
-  sema_down(&child_thread->t->waiting_process);
+  if (!child_thread->exited)
+    sema_down(&child_thread->t->waiting_process);
 
   /* Get the return status and remove the child thread */
+  lock_acquire(&cur->child_list_lock);
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
     if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
@@ -230,6 +239,8 @@ process_wait (tid_t child_tid UNUSED)
   }
   int status = child_thread->exit_status;
   list_remove(&child_thread->child_elem);
+  lock_release(&cur->child_list_lock);
+
   free(child_thread);
 
   return status;
@@ -271,8 +282,10 @@ process_exit (void)
           }
       }
       }
-      if (child_thread != NULL)
+      if (child_thread != NULL){
+        child_thread->exited = true;
         child_thread->exit_status = cur->exit_status;
+      }
       file_close(cur->file);
       sup_page_table_destroy(cur->sup_page_table);
       cur->pagedir = NULL;

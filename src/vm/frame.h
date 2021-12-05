@@ -7,6 +7,7 @@
 struct list frame_table;
 struct lock frame_table_lock;
 struct list_elem* frame_table_evict_ptr;
+struct lock frame_table_evict_ptr_lock;
 
 
 struct frame_table_entry {

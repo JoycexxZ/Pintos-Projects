@@ -45,6 +45,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  ASSERT (f != NULL);
   check_valid((const void *)f->esp, false);
   check_valid((const void *)f->esp +4, false);
   
