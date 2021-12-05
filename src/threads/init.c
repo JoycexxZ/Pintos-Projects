@@ -24,6 +24,7 @@
 #include "threads/thread.h"
 #include "vm/frame.h"
 #include "vm/swap.h"
+#include "userprog/mmap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -130,6 +131,8 @@ main (void)
   filesys_init (format_filesys);
 #endif
   swap_init();
+  mmap_init();
+
 
   printf ("Boot complete.\n");
   

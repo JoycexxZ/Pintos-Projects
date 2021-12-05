@@ -122,6 +122,8 @@ struct thread
     int exit_status;                    /* The exit status of this thread. */
     int has_exit;                       /* The flag of print exit msg */
 
+    struct list mmap_files;
+
     struct sup_page_table *sup_page_table;
 // #endif
 

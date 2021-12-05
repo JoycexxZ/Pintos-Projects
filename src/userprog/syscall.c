@@ -12,6 +12,7 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 #include "vm/page.h"
+#include "userprog/mmap.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
@@ -171,6 +172,17 @@ syscall_handler (struct intr_frame *f UNUSED)
                                                            buffer_head);
       f->eax = read (fd, (void *)buffer, size);
     }
+    break;
+
+  case SYS_MMAP:
+    {
+      int fd = get_ith_arg(f, 0, true);
+      void *vadd = get_ith_arg(f, 1, true);
+      f->eax = mmap(fd, vadd);
+    }
+    break;
+  case SYS_MUNMAP:
+    munmap(get_ith_arg(f, 0, true));
     break;
   
   default:
@@ -422,6 +434,35 @@ read (int fd, void *buffer, unsigned size)
   int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
   return length;
+}
+
+int
+reopen(int fd)
+{
+  lock_acquire(&filesys_lock);
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }else{
+    struct file *file = file_reopen(f->f);
+    file_seek(file, 0);
+    struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
+    if (thread_f == NULL){
+      lock_release(&filesys_lock);
+      exit (-1);
+    }
+
+    struct thread *cur = thread_current ();
+    thread_f->f = f;
+    thread_f->fd = cur->fd;
+    cur->fd++;
+    list_push_back (&cur->files, &thread_f->f_listelem);
+
+    lock_release (&filesys_lock);
+    return thread_f->fd;
+  }
 }
 
 /* check an address is valid or not, if not valid exit with -1.*/

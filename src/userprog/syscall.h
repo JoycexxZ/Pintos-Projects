@@ -34,5 +34,6 @@ bool remove (const char *file);
 int filesize (int fd);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
+int reopen(int fd);
 
 #endif /* userprog/syscall.h */

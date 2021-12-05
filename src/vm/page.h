@@ -26,6 +26,10 @@ struct sup_page_table_entry {
 
     bool writable;
     struct lock page_lock;
+
+    int fd;
+    int file_start;
+    int file_end;
     struct list_elem elem;
 };
 
@@ -43,5 +47,6 @@ void sup_page_destroy (struct sup_page_table *table, void *vadd);
 bool sup_page_activate (struct sup_page_table_entry *entry);
 void page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry *entry);
 void page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able);
+void sup_page_set_file (struct sup_page_table_entry *entry, int fd, int file_start, int file_end);
 
 #endif /* vm/page.h */

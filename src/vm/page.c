@@ -5,6 +5,7 @@
 #include "threads/malloc.h"
 #include "threads/pte.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 
 struct sup_page_table_entry *
 sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
@@ -71,6 +72,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
     entry->flag = flag;
     entry->writable = writable;
     entry->status = EMPTY;
+    entry->fd = -1;
     list_push_back(page_table, &entry->elem);
 
     lock_release(&entry->page_lock);
@@ -110,6 +112,16 @@ sup_page_activate (struct sup_page_table_entry *entry)
 
     if (entry->status == SWAP){
         swap_from_disk (entry->value.swap_index, frame);
+    }
+
+    if (entry->fd != -1)
+    {
+        void *kpage = pagedir_get_page(entry->owner->pagedir, entry->vadd);
+        seek(entry->fd, entry->file_start);
+        ASSERT(entry->file_end < PGSIZE);
+        int read_size = entry->file_end - entry->file_start;
+        read(entry->fd, kpage, read_size);
+        memset(kpage + read_size, 0, PGSIZE - read_size);
     }
 
     entry->value.frame = frame_entry;
@@ -152,4 +164,15 @@ page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
         sup_page_activate(entry);
     }
     lock_release(&entry->page_lock);
+}
+
+void 
+sup_page_set_file (struct sup_page_table_entry *entry, int fd, int file_start, int file_end)
+{
+    ASSERT(entry);
+
+    entry->flag = PAL_ZERO;
+    entry->fd = fd;
+    entry->file_start = file_start;
+    entry->file_end = file_end;
 }
