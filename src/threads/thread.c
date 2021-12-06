@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "userprog/mmap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "threads/malloc.h"
@@ -290,6 +291,7 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
+  
 
 #ifdef USERPROG
   struct thread *cur = thread_current();

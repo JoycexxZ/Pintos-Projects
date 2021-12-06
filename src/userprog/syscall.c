@@ -209,6 +209,15 @@ void
 exit (int status)
 {
   struct thread *cur = thread_current ();
+
+  for (struct list_elem *i = list_begin(&thread_current()->mmap_files); i != list_end(&thread_current()->mmap_files);)
+  {
+    struct list_elem *next_i = list_next(i);
+    struct mmap_file *temp = list_entry(i, struct mmap_file, elem);
+    munmap(temp->id);
+    i = next_i;
+  }
+  
   while (!list_empty(&cur->files))
   {
     struct list_elem* e = list_begin (&cur->files);

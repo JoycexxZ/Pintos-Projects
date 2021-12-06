@@ -68,10 +68,10 @@ mmap_discard (struct sup_page_table_entry *entry)
     if (pagedir_is_dirty(pd, entry->vadd))
     {
         pagedir_set_dirty(pd, entry->vadd, false);
-        page_set_swap_able(entry, false);
+        // page_set_swap_able(entry, false);
         seek(entry->fd, entry->file_start);
         write(entry->fd, entry->vadd,  entry->file_end - entry->file_start);
-        page_set_swap_able(entry, true);
+        // page_set_swap_able(entry, true);
     }
 }
 
@@ -79,7 +79,7 @@ void
 munmap (int map_id)
 {
     lock_acquire(&mmap_lock);
-    struct mmap_file *target_map;
+    struct mmap_file *target_map = NULL;
     for (struct list_elem * i = list_begin(&thread_current()->mmap_files); i != list_end(&thread_current()->mmap_files); i = list_next(i))
     {
         struct mmap_file *temp = list_entry(i, struct mmap_file, elem);
@@ -88,6 +88,13 @@ munmap (int map_id)
             target_map = temp;
         }
     }
+
+    if (target_map == NULL)
+    {
+        lock_release(&mmap_lock);
+        return;
+    }
+
 
     void *vadd  = target_map->vadd;
     for (size_t i = 0; i < target_map->page_count; i++)
