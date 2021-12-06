@@ -3,8 +3,11 @@
 #include "vm/swap.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
+#include <string.h>
 #include "threads/pte.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
+#include <stdio.h>
 
 struct sup_page_table_entry *
 sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
@@ -72,6 +75,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
     entry->flag = flag;
     entry->writable = writable;
     entry->status = EMPTY;
+    entry->fd = -1;
     list_push_back(page_table, &entry->elem);
 
     lock_release(&entry->page_lock);
@@ -117,6 +121,23 @@ sup_page_activate (struct sup_page_table_entry *entry)
     entry->value.frame = frame_entry;
     entry->status = FRAME;
 
+    if (entry->fd != -1)
+    {
+        ASSERT(entry->status == FRAME);
+        void *kpage = entry->value.frame->frame;
+        seek(entry->fd, entry->file_start);
+        int read_size = entry->file_end - entry->file_start;
+        ASSERT (read_size <= PGSIZE);
+        read(entry->fd, kpage, read_size);
+        memset(kpage + read_size, 0, PGSIZE - read_size);
+        
+        // page_set_swap_able(entry, false);
+
+        pagedir_set_accessed(entry->owner->pagedir, kpage, false);
+        pagedir_set_dirty(entry->owner->pagedir, kpage, false);
+    }
+
+
     lock_release (&entry->page_lock);
     return true;
 }
@@ -153,4 +174,15 @@ page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
         sup_page_activate(entry);
     }
     lock_release(&entry->page_lock);
+}
+
+void 
+sup_page_set_file (struct sup_page_table_entry *entry, int fd, int file_start, int file_end)
+{
+    ASSERT(entry);
+
+    entry->flag = PAL_ZERO;
+    entry->fd = fd;
+    entry->file_start = file_start;
+    entry->file_end = file_end;
 }

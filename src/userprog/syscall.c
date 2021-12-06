@@ -14,11 +14,13 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "threads/pte.h"
+#include "userprog/mmap.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
 
 static void syscall_handler (struct intr_frame *);
+static int FD = 2;
 
 /* Lock of the file system. */
 static struct lock filesys_lock;
@@ -199,6 +201,17 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = read (fd, (void *)buffer, size);
     }
     break;
+
+  case SYS_MMAP:
+    {
+      int fd = get_ith_arg(f, 0, true);
+      void *vadd = get_ith_arg(f, 1, true);
+      f->eax = mmap(fd, vadd);
+    }
+    break;
+  case SYS_MUNMAP:
+    munmap(get_ith_arg(f, 0, true));
+    break;
   
   default:
     exit(-1);
@@ -222,6 +235,15 @@ void
 exit (int status)
 {
   struct thread *cur = thread_current ();
+
+  for (struct list_elem *i = list_begin(&thread_current()->mmap_files); i != list_end(&thread_current()->mmap_files);)
+  {
+    struct list_elem *next_i = list_next(i);
+    struct mmap_file *temp = list_entry(i, struct mmap_file, elem);
+    munmap(temp->id);
+    i = next_i;
+  }
+  
   while (!list_empty(&cur->files))
   {
     struct list_elem* e = list_begin (&cur->files);
@@ -319,6 +341,8 @@ open (const char *file)
     lock_release(&filesys_lock);
     return -1;
   }
+  
+  
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
   if (thread_f == NULL){
@@ -328,8 +352,7 @@ open (const char *file)
 
   struct thread *cur = thread_current ();
   thread_f->f = f;
-  thread_f->fd = cur->fd;
-  cur->fd++;
+  thread_f->fd = FD++;
   list_push_back (&cur->files, &thread_f->f_listelem);
 
   lock_release (&filesys_lock);
@@ -446,10 +469,37 @@ read (int fd, void *buffer, unsigned size)
     lock_release (&filesys_lock);
     return -1;
   }
-
   int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
   return length;
+}
+
+int
+reopen(int fd)
+{
+  lock_acquire(&filesys_lock);
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }else{
+    struct file *file = file_reopen(f->f);
+    file_seek(file, 0);
+    struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
+    if (thread_f == NULL){
+      lock_release(&filesys_lock);
+      exit (-1);
+    }
+
+    struct thread *cur = thread_current ();
+    thread_f->f = file;
+    thread_f->fd = FD++;
+    list_push_back (&cur->files, &thread_f->f_listelem);
+
+    lock_release (&filesys_lock);
+    return thread_f->fd;
+  }
 }
 
 /* check an address is valid or not, if not valid exit with -1.*/
