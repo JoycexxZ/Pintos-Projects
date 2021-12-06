@@ -12,6 +12,8 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 #include "vm/page.h"
+#include "vm/frame.h"
+#include "threads/pte.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
@@ -56,11 +58,14 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXIT:
+    // printf("syscall: exit, tid: %d\n", thread_current ()->tid);
     exit(get_ith_arg(f, 0, true));
     break;
 
   case SYS_EXEC:
     {
+      // printf("syscall: exec, tid: %d\n", thread_current ()->tid);
+
       const void *vcmd_line = (const void *)get_ith_arg(f, 0, true);
       check_valid(vcmd_line, true);
       check_valid(vcmd_line+4, true);
@@ -72,11 +77,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_WAIT:
+    // printf("syscall: wait, tid: %d\n", thread_current ()->tid);
+
     f->eax = wait((pid_t)get_ith_arg(f, 0, true));
     break;
 
   case SYS_WRITE:
     {
+      // printf("syscall: write, tid: %d\n", thread_current ()->tid);
+
       int fd = get_ith_arg(f, 0, true);
       const void *buffer_head = (const void *) get_ith_arg(f, 1, false);
       unsigned size = (unsigned) get_ith_arg(f, 2, true);
@@ -97,16 +106,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     
   case SYS_OPEN:
     {
+
       const void *file_ptr = (const void *)get_ith_arg (f, 0, false);
+      printf("syscall: open, tid: %d, file_ptr: %x\n", thread_current ()->tid, file_ptr);
       check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                          file_ptr);
+      printf("file: %s\n", file);
       f->eax = open (file);
     }
     break;
 
   case SYS_CREATE:
     {
+      // printf("syscall: create, tid: %d\n", thread_current ()->tid);
+
       const void * file_head = (const void *)get_ith_arg(f, 0, false);
       unsigned size = (unsigned) get_ith_arg(f, 1, true);
       //const void * file_tail = file_head + size *4;
@@ -122,6 +136,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_REMOVE:
     {
+      // printf("syscall: remove, tid: %d\n", thread_current ()->tid);
+
       const void *file_ptr = (const void *)get_ith_arg(f, 0, false);
       check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
@@ -132,28 +148,38 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_CLOSE:
     {
+      // printf("syscall: close, tid: %d\n", thread_current ()->tid);
+
       int fd = get_ith_arg (f, 0, true);
       close (fd);
     }
     break;
 
   case SYS_FILESIZE:
+    // printf("syscall: filesize, tid: %d\n", thread_current ()->tid);
+
     f->eax = filesize(get_ith_arg(f, 0, true));
     break;
 
   case SYS_SEEK:
     {
+      // printf("syscall: seek, tid: %d\n", thread_current ()->tid);
+
       int fd = get_ith_arg(f, 0, true);
       unsigned position = (unsigned) get_ith_arg(f, 1, true);
       seek(fd, position);
     }
     break;
   case SYS_TELL:
+    printf("syscall: tell, tid: %d\n", thread_current ()->tid);
+
     f->eax = tell(get_ith_arg(f, 0, true));
     break;
 
   case SYS_READ:
     {
+      // printf("syscall: read, tid: %d\n", thread_current ()->tid);
+
       int fd = get_ith_arg (f, 0, true);
       const void *buffer_head = (const void *) get_ith_arg(f, 1, false);
       unsigned size = (unsigned) get_ith_arg(f, 2, true);
@@ -258,6 +284,7 @@ write (int fd, const void *buffer, unsigned size)
 {
 
   lock_acquire(&filesys_lock);
+  // printf("syscall: write, tid: %d, buffer: %x, size: %d\n", thread_current()->tid, buffer, size);
 
   if (fd == 1)
   {
@@ -452,8 +479,15 @@ check_valid_rw(void *add, struct intr_frame *f, bool swap_able)
       entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
     else
       exit(-1);
-
+  
   sup_page_activate(entry);
+
+  ASSERT(entry->status==FRAME);
+  void *frame = entry->value.frame->frame;
+  ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
+  ASSERT (pg_ofs (frame) == 0);
+  // printf("check valid rw - add: %x, frame: %x\n", add, frame);
+
   page_set_swap_able(entry, swap_able);
 }
 
