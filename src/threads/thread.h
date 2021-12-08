@@ -24,7 +24,7 @@ struct child_thread
    int tid;                            /* The tid of this child thread */
    int exit_status;                    /* The exit status of this child thread*/
    struct list_elem child_elem;        /* List element for children thread list. */
-   bool exited;
+   bool exited;                        /* The child thread is exited or not. */
 };
 
 
@@ -97,35 +97,35 @@ typedef int tid_t;
 struct thread
   {
     /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
+    tid_t tid;                            /* Thread identifier. */
+    enum thread_status status;            /* Thread state. */
+    char name[16];                        /* Name (for debugging purposes). */
+    uint8_t *stack;                       /* Saved stack pointer. */
+    int priority;                         /* Priority. */
+    struct list_elem allelem;             /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
+    struct list_elem elem;                /* List element. */
 
 // #ifdef USERPROG
     /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-    struct list child_list;             /* List of children threads. */
-    struct semaphore waiting_process;   /* Semaphore of should be waiting for child process. */
-    struct semaphore load_sema;         /* Semaphore of loading an execute file */
-    struct list files;                  /* List of files opened by this thread. */
-    struct file *file;                  /* The executable file of this thread. */
-    struct lock child_list_lock;        /* Lock of child_list. */
-    struct thread *parent;              /* The parent thread of this thread. */
-    int load_success;                   /* The flag of load success or not */
-    int child_status;                   /* The status of current waiting child thread. */
-    int fd;                             /* The available file descriptor for next file. */
-    int exit_status;                    /* The exit status of this thread. */
-    int has_exit;                       /* The flag of print exit msg */
+    uint32_t *pagedir;                    /* Page directory. */
+    struct list child_list;               /* List of children threads. */
+    struct semaphore waiting_process;     /* Semaphore of should be waiting for child process. */
+    struct semaphore load_sema;           /* Semaphore of loading an execute file */
+    struct list files;                    /* List of files opened by this thread. */
+    struct file *file;                    /* The executable file of this thread. */
+    struct lock child_list_lock;          /* Lock of child_list. */
+    struct thread *parent;                /* The parent thread of this thread. */
+    int load_success;                     /* The flag of load success or not */
+    int child_status;                     /* The status of current waiting child thread. */
+    int fd;                               /* The available file descriptor for next file. */
+    int exit_status;                      /* The exit status of this thread. */
+    int has_exit;                         /* The flag of print exit msg */
 
     struct list mmap_files;
 
-    struct sup_page_table *sup_page_table;
+    struct sup_page_table *sup_page_table; /* Supplemental page table of this thread. */
 // #endif
 
     /* Owned by thread.c. */

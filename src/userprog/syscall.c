@@ -110,11 +110,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 
       const void *file_ptr = (const void *)get_ith_arg (f, 0, false);
-      printf("syscall: open, tid: %d, file_ptr: %x\n", thread_current ()->tid, file_ptr);
+      // printf("syscall: open, tid: %d, file_ptr: %x\n", thread_current ()->tid, file_ptr);
       check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                          file_ptr);
-      printf("file: %s\n", file);
+      // printf("file: %s\n", file);
       f->eax = open (file);
     }
     break;
@@ -173,7 +173,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
   case SYS_TELL:
-    printf("syscall: tell, tid: %d\n", thread_current ()->tid);
+    // printf("syscall: tell, tid: %d\n", thread_current ()->tid);
 
     f->eax = tell(get_ith_arg(f, 0, true));
     break;

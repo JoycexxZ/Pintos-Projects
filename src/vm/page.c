@@ -113,6 +113,8 @@ sup_page_activate (struct sup_page_table_entry *entry)
         lock_release (&entry->page_lock);
         return false;
     }
+    frame = pagedir_get_page (entry->owner->pagedir, entry->vadd);
+    ASSERT (frame != NULL);
 
     if (entry->status == SWAP){
         swap_from_disk (entry->value.swap_index, frame);
