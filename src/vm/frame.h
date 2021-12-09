@@ -9,13 +9,12 @@ struct list frame_table;
 /* Lock of frame table. */
 struct lock frame_table_lock;
 
-<<<<<<< HEAD
 int evict_num;
 
-=======
+int frame_num;
+
 /* Pointer of next frame to evict. */
 struct list_elem* frame_table_evict_ptr;
->>>>>>> 93a145344f5157f9b018be5dc5879809768197c1
 
 /* Frame table entry in frame_table. */
 struct frame_table_entry {

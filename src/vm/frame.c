@@ -11,17 +11,17 @@ frame_table_init()
 {
     list_init(&frame_table);
     lock_init(&frame_table_lock);
-<<<<<<< HEAD
-    lock_init(&frame_table_evict_ptr_lock);
 
     evict_num = 0;
-=======
->>>>>>> 93a145344f5157f9b018be5dc5879809768197c1
+    frame_num = 0;
 }
 
 struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
+    frame_num++;
+    // if (frame_num % 128 == 0)
+        // printf("%d\n",frame_num);
     int temp = 2;
     while (temp--)
     {
@@ -78,7 +78,7 @@ evict_frame()
 {
     evict_num++;
     if (evict_num%128== 0){
-        bitmap_dump(swap_map);
+        // bitmap_dump(swap_map);
     }
     if (frame_table_evict_ptr == NULL)
         frame_table_evict_ptr = list_begin (&frame_table);
