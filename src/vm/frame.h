@@ -3,23 +3,29 @@
 
 #include "threads/thread.h"
 
-
+/* Frame table that stores all frames globally.  */
 struct list frame_table;
-struct lock frame_table_lock;
-struct list_elem* frame_table_evict_ptr;
-struct lock frame_table_evict_ptr_lock;
 
+/* Lock of frame table. */
+struct lock frame_table_lock;
+
+<<<<<<< HEAD
 int evict_num;
 
+=======
+/* Pointer of next frame to evict. */
+struct list_elem* frame_table_evict_ptr;
+>>>>>>> 93a145344f5157f9b018be5dc5879809768197c1
 
+/* Frame table entry in frame_table. */
 struct frame_table_entry {
-    uint32_t* frame;
-    struct sup_page_table_entry* vpage;
+    uint32_t* frame;                            /* Kernel virtual address of this frame. */
+    struct sup_page_table_entry* vpage;         /* The corresponding page entry. */
 
-    bool swap_able;
-    bool last_used;
+    bool swap_able;                             /* Able to swap. */
+    bool last_used;                             /* Last used bit in second chance algorithm. */
 
-    struct list_elem elem;
+    struct list_elem elem;                      /* List elem in frame_table. */
 };
 
 void frame_table_init();

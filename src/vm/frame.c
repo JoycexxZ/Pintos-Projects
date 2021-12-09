@@ -11,15 +11,17 @@ frame_table_init()
 {
     list_init(&frame_table);
     lock_init(&frame_table_lock);
+<<<<<<< HEAD
     lock_init(&frame_table_evict_ptr_lock);
 
     evict_num = 0;
+=======
+>>>>>>> 93a145344f5157f9b018be5dc5879809768197c1
 }
 
 struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
-    // lock_acquire (&frame_table_evict_ptr_lock);
     int temp = 2;
     while (temp--)
     {
@@ -40,7 +42,6 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
             lock_acquire(&frame_table_lock);
             list_push_back(&frame_table, &f->elem);
             lock_release(&frame_table_lock);
-            // lock_release (&frame_table_evict_ptr_lock);
             
             return f;
         }
@@ -56,7 +57,6 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 void
 frame_free_page(void* page)
 {
-    lock_acquire (&frame_table_evict_ptr_lock);
     lock_acquire(&frame_table_lock);
     for (struct list_elem* i = list_begin(&frame_table); i != list_end(&frame_table); i = list_next(i))
     {
@@ -68,7 +68,6 @@ frame_free_page(void* page)
 
             free(temp);
             lock_release(&frame_table_lock);
-            lock_release (&frame_table_evict_ptr_lock);
             return;
         } 
     } 
@@ -84,8 +83,6 @@ evict_frame()
     if (frame_table_evict_ptr == NULL)
         frame_table_evict_ptr = list_begin (&frame_table);
 
-    // lock_acquire (&frame_table_evict_ptr_lock);
-
     while (true)
     {
         struct frame_table_entry* f = list_entry (frame_table_evict_ptr, struct frame_table_entry, elem);
@@ -99,7 +96,6 @@ evict_frame()
                 if (frame_table_evict_ptr == list_end (&frame_table))
                     frame_table_evict_ptr = list_begin (&frame_table);
                 frame_free_page (f->frame);
-                // lock_release (&frame_table_evict_ptr_lock);
                 break;
             }
             else{

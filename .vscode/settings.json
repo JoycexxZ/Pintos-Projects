@@ -6,6 +6,7 @@
         "block.h": "c",
         "vaddr.h": "c",
         "limits.h": "c",
-        "bitmap.h": "c"
+        "bitmap.h": "c",
+        "pte.h": "c"
     }
 }
