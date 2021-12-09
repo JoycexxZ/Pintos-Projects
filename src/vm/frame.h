@@ -9,6 +9,8 @@ struct lock frame_table_lock;
 struct list_elem* frame_table_evict_ptr;
 struct lock frame_table_evict_ptr_lock;
 
+int evict_num;
+
 
 struct frame_table_entry {
     uint32_t* frame;

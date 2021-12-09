@@ -67,7 +67,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_EXEC:
     {
       // printf("syscall: exec, tid: %d\n", thread_current ()->tid);
-
       const void *vcmd_line = (const void *)get_ith_arg(f, 0, true);
       check_valid(vcmd_line, true);
       check_valid(vcmd_line+4, true);
@@ -110,11 +109,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 
       const void *file_ptr = (const void *)get_ith_arg (f, 0, false);
-      printf("syscall: open, tid: %d, file_ptr: %x\n", thread_current ()->tid, file_ptr);
+      // printf("syscall: open, tid: %d, file_ptr: %x\n", thread_current ()->tid, file_ptr);
       check_valid (file_ptr, false);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                          file_ptr);
-      printf("file: %s\n", file);
+      // printf("file: %s\n", file);
       f->eax = open (file);
     }
     break;
@@ -173,7 +172,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
   case SYS_TELL:
-    printf("syscall: tell, tid: %d\n", thread_current ()->tid);
+    // printf("syscall: tell, tid: %d\n", thread_current ()->tid);
 
     f->eax = tell(get_ith_arg(f, 0, true));
     break;
@@ -272,6 +271,7 @@ You must use appropriate synchronization to ensure this.*/
 pid_t 
 exec (const char *cmd_line)
 {
+  
   if (!cmd_line)
     return -1;
 
@@ -304,24 +304,27 @@ confusing both human readers and our grading scripts.*/
 int 
 write (int fd, const void *buffer, unsigned size)
 {
-
+  printf("1\n");
   lock_acquire(&filesys_lock);
   // printf("syscall: write, tid: %d, buffer: %x, size: %d\n", thread_current()->tid, buffer, size);
-
+  printf("2\n");
+  printf("fd = %d\n", fd);
   if (fd == 1)
   {
     putbuf(buffer, size);
     lock_release(&filesys_lock);
     return size;
   }
-
+  printf("3\n");
   struct thread_file *f = find_file_by_fd (fd);
   if (f == NULL)
   {
+    printf("4\n");
     lock_release(&filesys_lock);
     return 0;
   } 
   int real_size = (int)file_write(f->f, buffer, (off_t)size);
+  printf("5\n");
   lock_release (&filesys_lock);
   return real_size;
 }
@@ -389,6 +392,8 @@ closes all its open file descriptors, as if by calling this function for each on
 void
 close (int fd)
 {
+  printf("syscall: close, tid: %d\n", thread_current ()->tid);
+
   lock_acquire (&filesys_lock);
   struct thread_file *f = find_file_by_fd (fd);
   if (f == NULL){
@@ -512,7 +517,7 @@ check_valid (const void *add, bool swap_able)
       entry == NULL || add < (void *)VADD_LIMIT)
       exit(-1);
   
-  page_set_swap_able(entry, swap_able);
+  // page_set_swap_able(entry, swap_able);
 
 }
 

@@ -12,6 +12,8 @@ frame_table_init()
     list_init(&frame_table);
     lock_init(&frame_table_lock);
     lock_init(&frame_table_evict_ptr_lock);
+
+    evict_num = 0;
 }
 
 struct frame_table_entry *
@@ -75,6 +77,10 @@ frame_free_page(void* page)
 void
 evict_frame()
 {
+    evict_num++;
+    if (evict_num%128== 0){
+        bitmap_dump(swap_map);
+    }
     if (frame_table_evict_ptr == NULL)
         frame_table_evict_ptr = list_begin (&frame_table);
 

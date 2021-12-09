@@ -53,6 +53,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
+  strlcpy(file_name, fn_copy, PGSIZE);
 
   if (tid == TID_ERROR)
   {
@@ -661,6 +662,7 @@ setup_stack (void **esp)
     }
 */
   // printf("Set!!!! : %d\n", (int)success);
+  // page_set_swap_able(upage, 1);
   return success;
 }
 
