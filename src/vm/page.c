@@ -105,6 +105,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
     struct frame_table_entry *frame_entry = frame_get_page(entry->flag, entry);
     ASSERT(frame_entry != NULL);
     void* frame = frame_entry->frame;
+        // printf("swaaaaap\n");
 
     ASSERT (frame != NULL);
     ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
@@ -130,13 +131,13 @@ sup_page_activate (struct sup_page_table_entry *entry)
         seek(entry->fd, entry->file_start);
         int read_size = entry->file_end - entry->file_start;
         ASSERT (read_size <= PGSIZE);
-        read(entry->fd, kpage, read_size);
+        read(entry->fd, entry->vadd, read_size);
         memset(kpage + read_size, 0, PGSIZE - read_size);
         
         // page_set_swap_able(entry, false);
 
-        pagedir_set_accessed(entry->owner->pagedir, kpage, false);
-        pagedir_set_dirty(entry->owner->pagedir, kpage, false);
+        pagedir_set_accessed(entry->owner->pagedir, entry->vadd, false);
+        pagedir_set_dirty(entry->owner->pagedir, entry->vadd, false);
     }
 
 
@@ -154,6 +155,8 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
 
     if (entry->status == FRAME && entry->value.frame != NULL){
         frame_free_page (entry->value.frame->frame);
+        if (!is_user_vaddr(entry->vadd))
+            printf("%x\n", entry->vadd);
         pagedir_clear_page (entry->owner->pagedir, entry->vadd);
     }
     if (entry->status == SWAP){

@@ -244,6 +244,7 @@ process_wait (tid_t child_tid UNUSED)
 
   free(child_thread);
 
+  // printf("tid : %d, exited : %d\n",child_thread->tid, child_thread->exited);
   return status;
 }
 

@@ -9,6 +9,9 @@ struct list frame_table;
 /* Lock of frame table. */
 struct lock frame_table_lock;
 
+/* Lock of frame table. */
+struct lock frame_table_evict_lock;
+
 int evict_num;
 
 int frame_num;

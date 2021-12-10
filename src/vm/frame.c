@@ -11,6 +11,7 @@ frame_table_init()
 {
     list_init(&frame_table);
     lock_init(&frame_table_lock);
+    lock_init(&frame_table_evict_lock);
 
     evict_num = 0;
     frame_num = 0;
@@ -47,7 +48,10 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
         }
 
         /* evict */
+        lock_acquire(&frame_table_evict_lock);
         evict_frame ();
+        lock_release(&frame_table_evict_lock);
+
     }
     
     printf("get a NULL!!!!\n");
@@ -87,10 +91,15 @@ evict_frame()
     {
         struct frame_table_entry* f = list_entry (frame_table_evict_ptr, struct frame_table_entry, elem);
         if (f->swap_able){
-            if (!f->last_used){
+            if (!f->last_used && lock_try_acquire(&f->vpage->page_lock)){
+                // printf("frame: %x\n", f->frame);
                 size_t idx = swap_to_disk ((void *)f->frame);
+                if (!is_user_vaddr(pg_round_down  (f->vpage->vadd))){
+                    printf("status: %d\n", f->vpage->status);
+                }
                 f->vpage->status = SWAP;
                 f->vpage->value.swap_index = idx;
+                lock_release(&f->vpage->page_lock);
                 pagedir_clear_page (f->vpage->owner->pagedir, pg_round_down(f->vpage->vadd));
                 frame_table_evict_ptr = list_next (frame_table_evict_ptr);
                 if (frame_table_evict_ptr == list_end (&frame_table))
