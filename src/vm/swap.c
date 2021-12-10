@@ -5,7 +5,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
-
+/* Init all resources of swap. */
 void 
 swap_init(void){
     struct block *block = block_get_role (BLOCK_SWAP);
@@ -13,6 +13,7 @@ swap_init(void){
     swap_map = bitmap_create (block_size (block)/PAGE_SECTOR_NUM);
 }
 
+/* Save a page starting at kpage onto swap disk. */
 size_t 
 swap_to_disk(void *kpage){
     lock_acquire (&swap_map_lock);
@@ -32,6 +33,7 @@ swap_to_disk(void *kpage){
     return index;
 }
 
+/* Load a page from swap disk with index to kaddr. */
 void 
 swap_from_disk(size_t index, void *kaddr){
     lock_acquire (&swap_map_lock);
