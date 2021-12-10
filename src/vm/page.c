@@ -9,6 +9,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 
+/*Find an entry by vaddr from table, return NULL if don't find.*/
 struct sup_page_table_entry *
 sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
 {
@@ -29,6 +30,7 @@ sup_page_table_look_up (struct sup_page_table *table, void *vaddr)
     return NULL;
 }
 
+/* Initialize a sup page table*/
 struct sup_page_table * 
 sup_page_table_init()
 {
@@ -38,6 +40,7 @@ sup_page_table_init()
     return table;
 }
 
+/* Free every entry of the table and the table itself.*/
 void 
 sup_page_table_destroy(struct sup_page_table *table)
 {
@@ -51,6 +54,7 @@ sup_page_table_destroy(struct sup_page_table *table)
     free(table);
 }
 
+/* Create an entry with the given upage and flag, writable. Return the build entry.*/
 struct sup_page_table_entry *
 sup_page_create (void *upage, enum palloc_flags flag, bool writable)
 {
@@ -83,6 +87,7 @@ sup_page_create (void *upage, enum palloc_flags flag, bool writable)
     return entry;
 }
 
+/*Free an entry by the given vadd.*/
 void 
 sup_page_destroy (struct sup_page_table *table, void *vadd)
 {
@@ -90,6 +95,7 @@ sup_page_destroy (struct sup_page_table *table, void *vadd)
     page_destroy_by_elem(table, entry);
 }
 
+/*Getting a frame for the entry, return false if fail.*/
 bool 
 sup_page_activate (struct sup_page_table_entry *entry)
 {
@@ -145,6 +151,7 @@ sup_page_activate (struct sup_page_table_entry *entry)
     return true;
 }
 
+/*Free the given entry from the given table.*/
 void 
 page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry *entry)
 {
@@ -167,6 +174,7 @@ page_destroy_by_elem (struct sup_page_table *table, struct sup_page_table_entry 
     lock_release (&table->table_lock);
 }
 
+/*Set if the given entry can be swap, with true for can, false for can't.*/
 void
 page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
 {
@@ -181,6 +189,7 @@ page_set_swap_able(struct sup_page_table_entry *entry, bool swap_able)
     lock_release(&entry->page_lock);
 }
 
+/* Set the content of the entry representing the file with fd and the part start from file_start end at file_end. */
 void 
 sup_page_set_file (struct sup_page_table_entry *entry, int fd, int file_start, int file_end)
 {

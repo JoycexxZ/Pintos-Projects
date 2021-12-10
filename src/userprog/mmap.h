@@ -3,14 +3,14 @@
 
 #include "threads/thread.h"
 
-
+/* Necessary info for a mmap */
 struct mmap_file
 {
-    void* vadd;
-    int id;
-    int page_count;
-    int fd;
-    struct list_elem elem;
+    void* vadd;                     /* The starting address of this mapping */
+    int id;                         /* The id of this mapping which is unique */
+    int page_count;                 /* The numbers of pages of this file hold */
+    int fd;                         /* The fd of the mapping file */
+    struct list_elem elem;          /* List elem */
 };
 
 int mmap (int fd, void *vadd);

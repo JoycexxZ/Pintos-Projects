@@ -15,6 +15,8 @@ mmap_init()
     lock_init(&mmap_lock);
 }
 
+/*  Maps the file open as fd into the process's virtual address space. 
+The entire file is mapped into consecutive virtual pages starting at addr.*/
 int 
 mmap (int fd, void *vadd)
 {
@@ -61,6 +63,7 @@ mmap (int fd, void *vadd)
     return mmapfile->id;
 }
 
+/* Unmap a single page and write it back to the file.*/
 void
 mmap_discard (struct sup_page_table_entry *entry)
 {
@@ -75,6 +78,8 @@ mmap_discard (struct sup_page_table_entry *entry)
     }
 }
 
+/* Unmaps the mapping designated by mapping, which must be a mapping ID returned 
+by a previous call to mmap by the same process that has not yet been unmapped.*/
 void 
 munmap (int map_id)
 {

@@ -4,8 +4,9 @@
 #include "threads/palloc.h"
 #include "userprog/pagedir.h"
 #include "vm/swap.h"
+#include "userprog/mmap.h"
 
-
+/* Initialize a frame table*/
 void
 frame_table_init()
 {
@@ -16,7 +17,7 @@ frame_table_init()
     evict_num = 0;
     frame_num = 0;
 }
-
+/* Get a physical address for the given page table entry */
 struct frame_table_entry *
 frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
 {
@@ -58,6 +59,7 @@ frame_get_page(enum palloc_flags flag, struct sup_page_table_entry* vpage)
     return NULL;
 }
 
+/* Free the physical address using by the given page */
 void
 frame_free_page(void* page)
 {
@@ -77,6 +79,8 @@ frame_free_page(void* page)
     } 
 }
 
+/*Choose a frame from the frame table and 
+swap it to the swap table or write it to the file.*/
 void
 evict_frame()
 {
@@ -93,12 +97,18 @@ evict_frame()
         if (f->swap_able){
             if (!f->last_used && lock_try_acquire(&f->vpage->page_lock)){
                 // printf("frame: %x\n", f->frame);
-                size_t idx = swap_to_disk ((void *)f->frame);
-                if (!is_user_vaddr(pg_round_down  (f->vpage->vadd))){
-                    printf("status: %d\n", f->vpage->status);
+
+                if (f->vpage->fd != -1){
+                    mmap_discard(f->vpage);
+                    f->vpage->status = EMPTY;
+                }else{
+                    size_t idx = swap_to_disk ((void *)f->frame);
+                    if (!is_user_vaddr(pg_round_down  (f->vpage->vadd))){
+                        printf("status: %d\n", f->vpage->status);
+                    }
+                    f->vpage->status = SWAP;
+                    f->vpage->value.swap_index = idx;
                 }
-                f->vpage->status = SWAP;
-                f->vpage->value.swap_index = idx;
                 lock_release(&f->vpage->page_lock);
                 pagedir_clear_page (f->vpage->owner->pagedir, pg_round_down(f->vpage->vadd));
                 frame_table_evict_ptr = list_next (frame_table_evict_ptr);
