@@ -22,6 +22,9 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
+#include "userprog/mmap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -98,6 +101,7 @@ main (void)
   palloc_init (user_page_limit);
   malloc_init ();
   paging_init ();
+  frame_table_init();
 
   /* Segmentation. */
 #ifdef USERPROG
@@ -126,6 +130,9 @@ main (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
+  swap_init();
+  mmap_init();
+
 
   printf ("Boot complete.\n");
   

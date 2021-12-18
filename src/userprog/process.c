@@ -17,9 +17,19 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void find_thread_by_tid (struct thread *matching, void * aux UNUSED);
+
+/* The target tid when calling `find_thread_by_tid ()`. */
+static tid_t target_tid;
+
+/* The matched thread when calling `find_thread_by_tid ()`. */
+static struct thread * find_it;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -30,6 +40,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+  char *real_name, *save_ptr;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -38,10 +49,48 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  real_name = strtok_r(file_name," ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
+  strlcpy(file_name, fn_copy, PGSIZE);
+
   if (tid == TID_ERROR)
+  {
     palloc_free_page (fn_copy); 
+    return tid;
+  }
+  
+  /*Find the thread with tid and add it to the child thread of the running thread. 
+  And we will block the running thread until the child thread finish loading*/
+  target_tid = tid;
+  struct child_thread * child_thread = (struct child_thread *)malloc (sizeof(struct child_thread));
+  enum intr_level old_level = intr_disable();
+  thread_foreach(*find_thread_by_tid, NULL);
+  child_thread->tid = tid;
+  child_thread->t = find_it;
+  child_thread->exit_status = -1;
+  child_thread->exited = false;
+  // lock_acquire(&thread_current()->child_list_lock);
+  list_push_back(&thread_current()->child_list, &child_thread->child_elem);
+  // lock_release(&thread_current()->child_list_lock);
+
+  find_it->parent = thread_current();
+  intr_set_level(old_level);
+  sema_down(&thread_current()->load_sema);
+  
+  /*If the child thread load fail return -1*/
+  if (thread_current()->load_success == 0)
+  {
+    tid = -1;
+    // lock_acquire(&thread_current()->child_list_lock);
+    list_remove(&child_thread->child_elem);
+    free(child_thread);
+    // lock_release(&thread_current()->child_list_lock);
+
+  }
+
+
   return tid;
 }
 
@@ -53,18 +102,86 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
+  char* token, *save_ptr;
+  char* argv[45];
+  int argc = 0;
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  
+  /* Using strtok_r get the file name and the args*/
+  token = strtok_r(file_name, " ", &save_ptr);
+  argv[argc] = token;
+  argc++;
+
+  while (true)
+  {
+    token = strtok_r(NULL, " ", &save_ptr);
+    if (token == NULL)
+      break;
+    argv[argc] = token;
+    argc++;
+  }
+
+  success = load (argv[0], &if_.eip, &if_.esp);
+  /* Tell main process load complete*/
+  sema_up(&thread_current()->parent->load_sema);
+
+  if (!success) 
+  {
+    thread_current()->parent->load_success = 0;
+    palloc_free_page (file_name_);
+    exit(-1);
+  }
+  thread_current()->parent->load_success = 1;
+
+
+  /* Adding args to esp*/
+  char* arg_add[argc];
+  for (int i = argc-1; i>=0; i--)
+  {
+    size_t arg_size = sizeof(char)*(strlen(argv[i])+1);
+    if_.esp -= arg_size;
+    memcpy(if_.esp, (const void *)argv[i], arg_size);
+    arg_add[i] = (char*)if_.esp;
+  }
+
+  /* word-align */
+  while ((int)if_.esp % 4 != 0)
+  {
+    if_.esp--;
+  }
+  
+  if_.esp -= 4;
+  *(int*)if_.esp = 0;
+   
+  /* Adding args address */
+  for (int i = argc-1; i>=0; i--)
+  {
+    if_.esp -= 4;
+    *(char**)if_.esp = arg_add[i];
+  }
+  
+  /* argv */
+  if_.esp -= 4;
+  *(char**)if_.esp = (char*)if_.esp + 4;
+
+  /* argc */
+  if_.esp -= 4;
+  *(int*)if_.esp = argc;
+
+  /* return address */
+  if_.esp -= 4;
+  *(int*)if_.esp = 0;
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+
+  // printf("1\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -88,7 +205,47 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct child_thread *child_thread = NULL;
+  struct thread *cur = thread_current();
+  lock_acquire(&cur->child_list_lock);
+  if (list_empty(&cur->child_list))
+    return -1;
+  
+  /* Getting the child thread waiting for*/
+  for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
+  {
+    if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
+    {
+      child_thread = list_entry(i, struct child_thread, child_elem);
+      break;
+    }
+  }
+  lock_release(&cur->child_list_lock);
+  if (child_thread == NULL)
+    return -1;
+
+  /* Do waiting */
+  if (!child_thread->exited)
+    sema_down(&child_thread->t->waiting_process);
+
+  /* Get the return status and remove the child thread */
+  lock_acquire(&cur->child_list_lock);
+  for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
+  {
+    if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
+    {
+      child_thread = list_entry(i, struct child_thread, child_elem);
+      break;
+    }
+  }
+  int status = child_thread->exit_status;
+  list_remove(&child_thread->child_elem);
+  lock_release(&cur->child_list_lock);
+
+  free(child_thread);
+
+  // printf("tid : %d, exited : %d\n",child_thread->tid, child_thread->exited);
+  return status;
 }
 
 /* Free the current process's resources. */
@@ -110,9 +267,33 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+      
+      if (cur->has_exit == 0)
+        printf("%s: exit(%d)\n",cur->name, cur->exit_status);
+
+      struct child_thread *child_thread = NULL;
+      /* Save the exit status into a struct before exit */
+      if (cur->parent != NULL)
+      {
+        for (struct list_elem * i = list_begin(&cur->parent->child_list); i != list_end(&cur->parent->child_list); i = list_next(i))
+        {
+          if (list_entry(i, struct child_thread, child_elem)->tid == cur->tid)
+          {
+            child_thread = list_entry(i, struct child_thread, child_elem);
+            break;
+          }
+      }
+      }
+      if (child_thread != NULL){
+        child_thread->exited = true;
+        child_thread->exit_status = cur->exit_status;
+      }
+      file_close(cur->file);
+      sup_page_table_destroy(cur->sup_page_table);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
-      pagedir_destroy (pd);
+      palloc_free_page (pd);
+      // pagedir_destroy (pd);
     }
 }
 
@@ -219,15 +400,25 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
+
+  t->sup_page_table = sup_page_table_init ();
+  if (t->sup_page_table == NULL) 
+    goto done;
   process_activate ();
 
   /* Open executable file. */
+  
+  
   file = filesys_open (file_name);
+  
+  
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -310,12 +501,23 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
+  
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if (success == true)
+  {
+    /* Deny the file and add to the thread struct */
+    thread_current()->file = file;
+    file_deny_write (file);
+  }
+  else
+    file_close (file);
+
+  // printf("Set!!!! : %d\n", (int)success);
+  
   return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -397,24 +599,34 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+
+      struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER, writable);
+      if (sup_page_activate(entry) == false){
+        // printf("1\n");
+        return false;
+      }
+
+      uint8_t *kpage = entry->value.frame->frame;
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          // palloc_free_page (kpage);
+          page_destroy_by_elem(entry->owner->sup_page_table, entry);
+          // printf("2\n");
+
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
       /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
+      // if (!install_page (upage, kpage, writable)) 
+      //   {
+      //     palloc_free_page (kpage);
+      //     return false; 
+      //   }
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -431,7 +643,15 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
+  uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
+  struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER | PAL_ZERO, true);
+  success = sup_page_activate(entry);
+  if (success)
+    *esp = PHYS_BASE;
+  else
+    page_destroy_by_elem(entry->owner->sup_page_table, entry);
+/*
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -441,6 +661,9 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+*/
+  // printf("Set!!!! : %d\n", (int)success);
+  // page_set_swap_able(upage, 1);
   return success;
 }
 
@@ -462,4 +685,11 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+static void 
+find_thread_by_tid (struct thread *matching, void * aux UNUSED)
+{
+  if (target_tid == matching->tid)
+    find_it = matching;
 }

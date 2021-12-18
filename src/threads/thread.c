@@ -11,8 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "userprog/mmap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "threads/malloc.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -36,6 +38,15 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+
+struct exe_file
+{
+  char* file_name;
+  struct lock file_sema;
+  struct list_elem elem;
+};
+
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -92,7 +103,6 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -281,9 +291,12 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
+  
 
 #ifdef USERPROG
+  struct thread *cur = thread_current();
   process_exit ();
+  sema_up(&cur->waiting_process);
 #endif
 
   /* Remove thread from all threads list, set our status to dying,
@@ -464,6 +477,19 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+#ifdef USERPROG
+  list_init(&t->child_list);
+  list_init(&t->files);
+  sema_init(&t->waiting_process, 0);
+  lock_init(&t->child_list_lock);
+  sema_init(&t->load_sema, 0);
+  t->load_success = 0;
+
+  t->fd = 2;
+  t->exit_status = -1;
+  t->has_exit = 0;
+#endif
+  list_init(&t->mmap_files);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -578,7 +604,13 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+size_t
+check_all_list()
+{
+  return list_size(&all_list);
+}
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
