@@ -5,7 +5,6 @@
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
-#include <stdio.h>
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -128,8 +127,6 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
 {
   uint32_t *pte;
 
-  if (!is_user_vaddr(uaddr))
-    printf ("fault add: %x\n", uaddr);
   ASSERT (is_user_vaddr (uaddr));
   
   pte = lookup_page (pd, uaddr, false);
@@ -167,7 +164,6 @@ bool
 pagedir_is_dirty (uint32_t *pd, const void *vpage) 
 {
   uint32_t *pte = lookup_page (pd, vpage, false);
-  // printf("%x\n", pte);
   return pte != NULL && (*pte & PTE_D) != 0;
 }
 

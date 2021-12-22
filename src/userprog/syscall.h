@@ -17,9 +17,9 @@ struct thread_file
 
 void syscall_init (void);
 
-int get_ith_arg (struct intr_frame *f, int i, bool swap_able);
+int get_ith_arg (struct intr_frame *f, int i);
 
-void check_valid (const void *add, bool swap_able);
+void check_valid (const void *add);
 
 void halt (void);
 void exit (int status);
@@ -34,6 +34,5 @@ bool remove (const char *file);
 int filesize (int fd);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
-int reopen(int fd);
 
 #endif /* userprog/syscall.h */

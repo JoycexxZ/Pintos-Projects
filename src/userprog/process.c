@@ -18,8 +18,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
-#include "vm/page.h"
-#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -53,7 +51,6 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
-  strlcpy(file_name, fn_copy, PGSIZE);
 
   if (tid == TID_ERROR)
   {
@@ -70,11 +67,7 @@ process_execute (const char *file_name)
   child_thread->tid = tid;
   child_thread->t = find_it;
   child_thread->exit_status = -1;
-  child_thread->exited = false;
-  // lock_acquire(&thread_current()->child_list_lock);
   list_push_back(&thread_current()->child_list, &child_thread->child_elem);
-  // lock_release(&thread_current()->child_list_lock);
-
   find_it->parent = thread_current();
   intr_set_level(old_level);
   sema_down(&thread_current()->load_sema);
@@ -83,11 +76,8 @@ process_execute (const char *file_name)
   if (thread_current()->load_success == 0)
   {
     tid = -1;
-    // lock_acquire(&thread_current()->child_list_lock);
     list_remove(&child_thread->child_elem);
     free(child_thread);
-    // lock_release(&thread_current()->child_list_lock);
-
   }
 
 
@@ -128,7 +118,7 @@ start_process (void *file_name_)
   }
 
   success = load (argv[0], &if_.eip, &if_.esp);
-  /* Tell main process load complete*/
+  /* Tell mian process load complete*/
   sema_up(&thread_current()->parent->load_sema);
 
   if (!success) 
@@ -181,8 +171,6 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
 
-  // printf("1\n");
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -225,11 +213,9 @@ process_wait (tid_t child_tid UNUSED)
     return -1;
 
   /* Do waiting */
-  if (!child_thread->exited)
-    sema_down(&child_thread->t->waiting_process);
+  sema_down(&child_thread->t->waiting_process);
 
   /* Get the return status and remove the child thread */
-  lock_acquire(&cur->child_list_lock);
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
   {
     if (list_entry(i, struct child_thread, child_elem)->tid == child_tid)
@@ -240,11 +226,8 @@ process_wait (tid_t child_tid UNUSED)
   }
   int status = child_thread->exit_status;
   list_remove(&child_thread->child_elem);
-  lock_release(&cur->child_list_lock);
-
   free(child_thread);
 
-  // printf("tid : %d, exited : %d\n",child_thread->tid, child_thread->exited);
   return status;
 }
 
@@ -284,16 +267,12 @@ process_exit (void)
           }
       }
       }
-      if (child_thread != NULL){
-        child_thread->exited = true;
+      if (child_thread != NULL)
         child_thread->exit_status = cur->exit_status;
-      }
       file_close(cur->file);
-      sup_page_table_destroy(cur->sup_page_table);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
-      palloc_free_page (pd);
-      // pagedir_destroy (pd);
+      pagedir_destroy (pd);
     }
 }
 
@@ -399,10 +378,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
-    goto done;
-
-  t->sup_page_table = sup_page_table_init ();
-  if (t->sup_page_table == NULL) 
     goto done;
   process_activate ();
 
@@ -512,12 +487,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
   else
     file_close (file);
-
-  // printf("Set!!!! : %d\n", (int)success);
-  
   return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -599,34 +571,24 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-
-      struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER, writable);
-      if (sup_page_activate(entry) == false){
-        // printf("1\n");
-        return false;
-      }
-
-      uint8_t *kpage = entry->value.frame->frame;
+      uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          // palloc_free_page (kpage);
-          page_destroy_by_elem(entry->owner->sup_page_table, entry);
-          // printf("2\n");
-
+          palloc_free_page (kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
       /* Add the page to the process's address space. */
-      // if (!install_page (upage, kpage, writable)) 
-      //   {
-      //     palloc_free_page (kpage);
-      //     return false; 
-      //   }
+      if (!install_page (upage, kpage, writable)) 
+        {
+          palloc_free_page (kpage);
+          return false; 
+        }
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -643,15 +605,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-  uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
-  struct sup_page_table_entry *entry = sup_page_create(upage, PAL_USER | PAL_ZERO, true);
-  success = sup_page_activate(entry);
-  if (success)
-    *esp = PHYS_BASE;
-  else
-    page_destroy_by_elem(entry->owner->sup_page_table, entry);
-/*
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -661,9 +615,6 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
-*/
-  // printf("Set!!!! : %d\n", (int)success);
-  // page_set_swap_able(upage, 1);
   return success;
 }
 

@@ -11,16 +11,11 @@
 #include "userprog/pagedir.h"
 #include "threads/malloc.h"
 #include "devices/input.h"
-#include "vm/page.h"
-#include "vm/frame.h"
-#include "threads/pte.h"
-#include "userprog/mmap.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
 
 static void syscall_handler (struct intr_frame *);
-static int FD = 2;
 
 /* Lock of the file system. */
 static struct lock filesys_lock;
@@ -49,10 +44,8 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  ASSERT (f != NULL);
-  check_valid((const void *)f->esp, true);
-  check_valid((const void *)f->esp +4, true);
-  // printf("tid: %d\n",thread_current()->tid);
+  check_valid((const void *)f->esp);
+  check_valid((const void *)f->esp +4);
   
   switch (*(int *)f->esp)
   {
@@ -61,16 +54,14 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXIT:
-    // printf("syscall: exit, tid: %d\n", thread_current ()->tid);
-    exit(get_ith_arg(f, 0, true));
+    exit(get_ith_arg(f, 0));
     break;
 
   case SYS_EXEC:
     {
-      // printf("syscall: exec, tid: %d\n", thread_current ()->tid);
-      const void *vcmd_line = (const void *)get_ith_arg(f, 0, true);
-      check_valid(vcmd_line, true);
-      check_valid(vcmd_line+4, true);
+      const void *vcmd_line = (const void *)get_ith_arg(f, 0);
+      check_valid(vcmd_line);
+      check_valid(vcmd_line+4);
       const void *cmd_line = (const void *)pagedir_get_page (thread_current ()->pagedir, 
                                                            vcmd_line);
       f->eax = exec((char *)cmd_line);
@@ -79,56 +70,42 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_WAIT:
-    // printf("syscall: wait, tid: %d\n", thread_current ()->tid);
-
-    f->eax = wait((pid_t)get_ith_arg(f, 0, true));
+    f->eax = wait((pid_t)get_ith_arg(f, 0));
     break;
 
   case SYS_WRITE:
     {
-      // printf("syscall: write, tid: %d\n", thread_current ()->tid);
-
-      int fd = get_ith_arg(f, 0, true);
-      const void *buffer_head = (const void *) get_ith_arg(f, 1, true);
-      unsigned size = (unsigned) get_ith_arg(f, 2, true);
-      const void *buffer_tail = ((const void *) buffer_head) + (size-1);
+      int fd = get_ith_arg(f, 0);
+      const void *buffer_head = (const void *) get_ith_arg(f, 1);
+      unsigned size = (unsigned) get_ith_arg(f, 2);
+      //const void *buffer_tail = ((const void *) buffer_head) + (size-1)*4;
       
-      for (size_t i = 0; i < size ; i += PGSIZE)
-      {
-        check_valid_rw(buffer_head + i, f, true);  
-      }
-      
-      check_valid_rw(buffer_tail, f, false);
+      check_valid(buffer_head);
+      //check_valid(buffer_tail);
 
-      // const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
-      //                                                      buffer_head);
-      f->eax = write(fd, buffer_head, size);
+      const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           buffer_head);
+      f->eax = write(fd, buffer, size);
     }
     break;
     
   case SYS_OPEN:
     {
-
-      const void *file_ptr = (const void *)get_ith_arg (f, 0, true);
-      check_valid (file_ptr, true);
+      const void *file_ptr = (const void *)get_ith_arg (f, 0);
+      check_valid (file_ptr);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                          file_ptr);
-      // printf("%s\n",file);
-      // printf("T: %d, file: %s\n", thread_current()->tid, file);
       f->eax = open (file);
-      // printf("syscall: open, tid: %d, file_ptr: %x, fd: %d\n", thread_current ()->tid, file_ptr, f->eax);
     }
     break;
 
   case SYS_CREATE:
     {
-      // printf("syscall: create, tid: %d\n", thread_current ()->tid);
-
-      const void * file_head = (const void *)get_ith_arg(f, 0, true);
-      unsigned size = (unsigned) get_ith_arg(f, 1, true);
+      const void * file_head = (const void *)get_ith_arg(f, 0);
+      unsigned size = (unsigned) get_ith_arg(f, 1);
       //const void * file_tail = file_head + size *4;
 
-      check_valid(file_head, true);
+      check_valid(file_head);
       //check_valid(file_tail);
 
       const void *file = (const void *)pagedir_get_page (thread_current ()->pagedir, 
@@ -139,10 +116,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_REMOVE:
     {
-      // printf("syscall: remove, tid: %d\n", thread_current ()->tid);
-
-      const void *file_ptr = (const void *)get_ith_arg(f, 0, true);
-      check_valid (file_ptr, true);
+      const void *file_ptr = (const void *)get_ith_arg(f, 0);
+      check_valid (file_ptr);
       const char *file = (const char *)pagedir_get_page (thread_current ()->pagedir,
                                                       file_ptr);
       f->eax = remove (file);
@@ -151,67 +126,40 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_CLOSE:
     {
-      // printf("syscall: close, tid: %d\n", thread_current ()->tid);
-
-      int fd = get_ith_arg (f, 0, true);
+      int fd = get_ith_arg (f, 0);
       close (fd);
     }
     break;
 
   case SYS_FILESIZE:
-    // printf("syscall: filesize, tid: %d\n", thread_current ()->tid);
-
-    f->eax = filesize(get_ith_arg(f, 0, true));
+    f->eax = filesize(get_ith_arg(f, 0));
     break;
 
   case SYS_SEEK:
     {
-      // printf("syscall: seek, tid: %d\n", thread_current ()->tid);
-
-      int fd = get_ith_arg(f, 0, true);
-      unsigned position = (unsigned) get_ith_arg(f, 1, true);
+      int fd = get_ith_arg(f, 0);
+      unsigned position = (unsigned) get_ith_arg(f, 1);
       seek(fd, position);
     }
     break;
   case SYS_TELL:
-    // printf("syscall: tell, tid: %d\n", thread_current ()->tid);
-
-    f->eax = tell(get_ith_arg(f, 0, true));
+    f->eax = tell(get_ith_arg(f, 0));
     break;
 
   case SYS_READ:
     {
-      // printf("syscall: read, tid: %d\n", thread_current ()->tid);
-
-      int fd = get_ith_arg (f, 0, true);
-      const void *buffer_head = (const void *) get_ith_arg(f, 1, true);
-      unsigned size = (unsigned) get_ith_arg(f, 2, true);
-      const void *buffer_tail = ((const void *) buffer_head) + (size - 1);
+      int fd = get_ith_arg (f, 0);
+      const void *buffer_head = (const void *) get_ith_arg(f, 1);
+      unsigned size = (unsigned) get_ith_arg(f, 2);
+      //const void *buffer_tail = ((const void *) buffer_head) + (size - 1)*4;
       
-      for (size_t i = 0; i < size ; i += PGSIZE)
-      {
-        check_valid_rw(buffer_head + i, f, true);  
-      }
-      //check_valid_rw(buffer_head, f);
-      check_valid_rw(buffer_tail, f, true);
-      struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, buffer_head);
-      if (!entry->writable) 
-        exit(-1);
-      // const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
-      //                                                      buffer_head);
-      f->eax = read (fd, (void *)buffer_head, size);
-    }
-    break;
+      check_valid(buffer_head);
+      //check_valid(buffer_tail);
 
-  case SYS_MMAP:
-    {
-      int fd = get_ith_arg(f, 0, true);
-      void *vadd = get_ith_arg(f, 1, true);
-      f->eax = mmap(fd, vadd);
+      const void *buffer = (const void *)pagedir_get_page (thread_current ()->pagedir, 
+                                                           buffer_head);
+      f->eax = read (fd, (void *)buffer, size);
     }
-    break;
-  case SYS_MUNMAP:
-    munmap(get_ith_arg(f, 0, true));
     break;
   
   default:
@@ -236,23 +184,12 @@ void
 exit (int status)
 {
   struct thread *cur = thread_current ();
-  // printf("syscall: exit, tid: %d\n", thread_current ()->tid);
-
-  for (struct list_elem *i = list_begin(&thread_current()->mmap_files); i != list_end(&thread_current()->mmap_files);)
-  {
-    struct list_elem *next_i = list_next(i);
-    struct mmap_file *temp = list_entry(i, struct mmap_file, elem);
-    munmap(temp->id);
-    i = next_i;
-  }
-  // printf("here1\n");
   while (!list_empty(&cur->files))
   {
     struct list_elem* e = list_begin (&cur->files);
     int fd = list_entry (e, struct thread_file, f_listelem)->fd;
     close (fd);
   }
-  // printf("here2\n");
 
   while (!list_empty(&cur->child_list))
   {
@@ -261,8 +198,6 @@ exit (int status)
     this_child->t->parent = NULL;
     free(this_child);
   }
-  // printf("here3\n");
-
   cur->exit_status = status;
   printf("%s: exit(%d)\n",cur->name, cur->exit_status);
   cur->has_exit = 1;
@@ -277,7 +212,6 @@ You must use appropriate synchronization to ensure this.*/
 pid_t 
 exec (const char *cmd_line)
 {
-  
   if (!cmd_line)
     return -1;
 
@@ -310,45 +244,23 @@ confusing both human readers and our grading scripts.*/
 int 
 write (int fd, const void *buffer, unsigned size)
 {
-  
+
   lock_acquire(&filesys_lock);
-  // printf("syscall: write, tid: %d, buffer: %x, size: %d\n", thread_current()->tid, buffer, size);
+
   if (fd == 1)
   {
     putbuf(buffer, size);
     lock_release(&filesys_lock);
     return size;
   }
+
   struct thread_file *f = find_file_by_fd (fd);
   if (f == NULL)
   {
-    // printf("4\n");
     lock_release(&filesys_lock);
     return 0;
   } 
-
-  struct thread* cur = thread_current();
-  int real_size = 0;
-  int last_size = 0;
-  void *buffer_ptr = buffer;
-  void *buffer_next_ptr = NULL;
-  
-  while (real_size < size)
-  {
-    buffer_next_ptr = pg_round_up(buffer_ptr+1);
-    off_t temp1 = (off_t)(buffer_next_ptr - buffer_ptr);
-    off_t temp2 = (off_t)(size - real_size);
-    off_t s = temp1 < temp2 ? temp1 : temp2;
-    void* kaddr = pagedir_get_page(cur->pagedir, buffer_ptr);
-    real_size += (int)file_write(f->f, buffer_ptr, s);
-
-    if (last_size == real_size)
-      break;
-    last_size = real_size;
-
-    buffer_ptr = buffer_next_ptr;
-  }  
-  
+  int real_size = (int)file_write(f->f, buffer, (off_t)size);
   lock_release (&filesys_lock);
   return real_size;
 }
@@ -362,15 +274,12 @@ open (const char *file)
 {
   lock_acquire (&filesys_lock);
   
-  // printf("tid : %d, file: %s\n",thread_current()->tid, file);
   struct file *f = filesys_open (file);
   if (f == NULL)
   {
     lock_release(&filesys_lock);
     return -1;
   }
-  
-  
 
   struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
   if (thread_f == NULL){
@@ -380,7 +289,8 @@ open (const char *file)
 
   struct thread *cur = thread_current ();
   thread_f->f = f;
-  thread_f->fd = FD++;
+  thread_f->fd = cur->fd;
+  cur->fd++;
   list_push_back (&cur->files, &thread_f->f_listelem);
 
   lock_release (&filesys_lock);
@@ -417,8 +327,6 @@ closes all its open file descriptors, as if by calling this function for each on
 void
 close (int fd)
 {
-  // printf("syscall: close, tid: %d\n", thread_current ()->tid);
-
   lock_acquire (&filesys_lock);
   struct thread_file *f = find_file_by_fd (fd);
   if (f == NULL){
@@ -488,9 +396,7 @@ Fd 0 reads from the keyboard using input_getc().*/
 int
 read (int fd, void *buffer, unsigned size)
 {
-  // printf("syscall: read, tid: %d, buffer: %x, size: %d\n", thread_current()->tid, buffer, size);
   lock_acquire (&filesys_lock);
-
   if (fd == 0){
     lock_release(&filesys_lock);
     return (int)input_getc ();
@@ -501,108 +407,27 @@ read (int fd, void *buffer, unsigned size)
     lock_release (&filesys_lock);
     return -1;
   }
-  // int length = (int)file_read (f->f, buffer, size);
 
-  struct thread* cur = thread_current();
-  int real_size = 0;
-  int last_size = 0;
-  void *buffer_ptr = buffer;
-  void *buffer_next_ptr = NULL;
-  // printf("size: %d\n", size);
-  
-  while (real_size < size)
-  {
-    buffer_next_ptr = pg_round_up(buffer_ptr+1);
-    off_t temp1 = (off_t)(buffer_next_ptr - buffer_ptr);
-    off_t temp2 = (off_t)(size - real_size);
-    off_t s = temp1 < temp2 ? temp1 : temp2;
-    // printf("buffer: %x\n", buffer_ptr);
-    void* kaddr = pagedir_get_page(cur->pagedir, buffer_ptr);
-    real_size += (int)file_read(f->f, buffer_ptr, s);
-    if (real_size == last_size)
-      break;
-    last_size = real_size;
-
-    buffer_ptr = buffer_next_ptr;
-  }  
+  int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
-  // printf("tid: %d, real_size: %d\n", thread_current()->tid, real_size);
-  return real_size;
-}
-
-int
-reopen(int fd)
-{
-  lock_acquire(&filesys_lock);
-  struct thread_file *f = find_file_by_fd (fd);
-  if (f == NULL)
-  {
-    lock_release (&filesys_lock);
-    return -1;
-  }else{
-    struct file *file = file_reopen(f->f);
-    file_seek(file, 0);
-    struct thread_file* thread_f = (struct thread_file *)malloc (sizeof(struct thread_file));
-    if (thread_f == NULL){
-      lock_release(&filesys_lock);
-      exit (-1);
-    }
-
-    struct thread *cur = thread_current ();
-    thread_f->f = file;
-    thread_f->fd = FD++;
-    list_push_back (&cur->files, &thread_f->f_listelem);
-
-    lock_release (&filesys_lock);
-    return thread_f->fd;
-  }
+  return length;
 }
 
 /* check an address is valid or not, if not valid exit with -1.*/
 void 
-check_valid (const void *add, bool swap_able)
+check_valid (const void *add)
 {
-  struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
-
   if (!is_user_vaddr(add) || add == NULL || 
-      entry == NULL || add < (void *)VADD_LIMIT)
+      pagedir_get_page(thread_current()->pagedir, add) == NULL || add < (void *)VADD_LIMIT)
       exit(-1);
-  // printf("status: %d\n", entry->status);
-  page_set_swap_able(entry, swap_able);
-
-}
-
-void
-check_valid_rw(void *add, struct intr_frame *f, bool swap_able)
-{
-  if (!is_user_vaddr(add) || add == NULL)
-    exit(-1);
-
-  struct sup_page_table_entry *entry = sup_page_table_look_up(thread_current()->sup_page_table, add);
-
-  if (entry == NULL)
-    if (f->esp - 33 < add && add < f->esp + PGSIZE*100)
-      entry = sup_page_create(pg_round_down(add), PAL_USER|PAL_ZERO, true);
-    else
-      exit(-1);
-  
-  sup_page_activate(entry);
-
-  ASSERT(entry->status==FRAME);
-  void *frame = entry->value.frame->frame;
-  ASSERT (vtop (frame) >> PTSHIFT < init_ram_pages);
-  ASSERT (pg_ofs (frame) == 0);
-  // printf("check valid rw - add: %x, frame: %x\n", add, frame);
-
-  page_set_swap_able(entry, swap_able);
 }
 
 /* Get the ith arg for the given f */
 int 
-get_ith_arg (struct intr_frame *f, int i, bool swap_able)
+get_ith_arg (struct intr_frame *f, int i)
 {
   int *argv = (int *) f->esp + i + 1;
-  check_valid(argv, swap_able);
-  check_valid((void *)argv + 3, swap_able);
+  check_valid(argv);
+  check_valid((void *)argv + 3);
   return *argv;
 }
