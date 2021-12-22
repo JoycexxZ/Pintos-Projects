@@ -51,6 +51,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
+  strlcpy (file_name, fn_copy, PGSIZE);
 
   if (tid == TID_ERROR)
   {
@@ -67,6 +68,7 @@ process_execute (const char *file_name)
   child_thread->tid = tid;
   child_thread->t = find_it;
   child_thread->exit_status = -1;
+  child_thread->exited = false;
   list_push_back(&thread_current()->child_list, &child_thread->child_elem);
   find_it->parent = thread_current();
   intr_set_level(old_level);
@@ -213,7 +215,8 @@ process_wait (tid_t child_tid UNUSED)
     return -1;
 
   /* Do waiting */
-  sema_down(&child_thread->t->waiting_process);
+  if (!child_thread->exited)
+    sema_down(&child_thread->t->waiting_process);
 
   /* Get the return status and remove the child thread */
   for (struct list_elem * i = list_begin(&cur->child_list); i != list_end(&cur->child_list); i = list_next(i))
@@ -267,8 +270,10 @@ process_exit (void)
           }
       }
       }
-      if (child_thread != NULL)
+      if (child_thread != NULL){
+        child_thread->exited = true;
         child_thread->exit_status = cur->exit_status;
+      }
       file_close(cur->file);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
