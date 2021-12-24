@@ -11,6 +11,8 @@
 #include "userprog/pagedir.h"
 #include "threads/malloc.h"
 #include "devices/input.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
@@ -273,8 +275,9 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
+  enum entry_type type;
   
-  struct file *f = filesys_open (file);
+  struct file *f = filesys_open (thread_current()->current_dir, file, &type);
   if (f == NULL)
   {
     lock_release(&filesys_lock);
@@ -288,6 +291,12 @@ open (const char *file)
   }
 
   struct thread *cur = thread_current ();
+  if (type == DIRECTORY){
+    thread_f->is_dir = true;
+    thread_f->dir = dir_open(inode_open(file_get_inode(f)));
+  }
+  else
+    thread_f->is_dir = false;
   thread_f->f = f;
   thread_f->fd = cur->fd;
   cur->fd++;
@@ -317,7 +326,7 @@ bool
 remove (const char *file)
 {
   lock_acquire(&filesys_lock);
-  bool ret = filesys_remove(file);
+  bool ret = filesys_remove(thread_current()->current_dir, file);
   lock_release(&filesys_lock);
   return ret;
 }
