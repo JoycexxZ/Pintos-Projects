@@ -5,30 +5,37 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-//#include "threads/interrupt.h"
-//#include "threads/synch.h"
 
-/* A directory. */
-struct dir 
+
+static bool
+dir_is_empty (struct dir *dir){
+  struct dir_entry e;
+  off_t pos = 0;
+
+  while (inode_read_at (dir->inode, &e, sizeof e, pos) == sizeof e) 
   {
-    struct inode *inode;                /* Backing store. */
-    off_t pos;                          /* Current position. */
-  };
+    pos += sizeof e;
+    if (e.in_use && e.name != ".." && e.name != ".")
+      return true;
+  }
+  return false;
+}
 
-enum entry_type{
-  DIRECTORY, 
-  FILE
-};
+static void
+dir_clear (struct dir *dir){
+  struct dir_entry e;
+  off_t pos = 0;
 
-/* A single directory entry. */
-struct dir_entry 
+  while (inode_read_at (dir->inode, &e, sizeof e, pos) == sizeof e) 
   {
-    block_sector_t inode_sector;        /* Sector number of header. */
-    char name[NAME_MAX + 1];            /* Null terminated file name. */
-    bool in_use;                        /* In use or free? */
-    struct dir *parent;
-    enum entry_type type;
-  };
+    pos += sizeof e;
+    if (e.in_use){
+      struct inode *inode = inode_open (e.inode_sector);
+      inode_remove (inode);
+      inode_close (inode);
+    }
+  }
+}
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -131,18 +138,50 @@ lookup (const struct dir *dir, const char *name,
    a null pointer.  The caller must close *INODE. */
 bool
 dir_lookup (const struct dir *dir, const char *name,
-            struct inode **inode) 
+            struct inode **inode, enum entry_type *type) 
 {
-  struct dir_entry e;
-
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  if (lookup (dir, name, &e, NULL))
-    *inode = inode_open (e.inode_sector);
-  else
-    *inode = NULL;
+  struct dir_entry e;
+  char name_copy[100];
+  strlcpy (name_copy, name, strlen(name));
+  char *token, *save_ptr, *last;
+  struct dir *cur_dir;
+  enum entry_type cur_type;
+  struct inode *cur_inode;
+  *inode = NULL;
 
+  if (lookup (dir, name, &e, NULL)){
+    *inode = inode_open (e.inode_sector);
+    goto done;
+  }
+
+  if (name[0] == "/"){
+    cur_dir = dir_open_root ();
+  }
+  else{
+    cur_dir = dir;
+  }
+  cur_type = DIRECTORY;
+
+  for (token = strtok_r (name_copy, "/", &save_ptr);
+       token != NULL;
+       token = strtok_r (NULL, "/", &save_ptr)){
+    if (cur_type != DIRECTORY)
+      goto done;
+    if (!lookup (cur_dir, token, &e, NULL))
+      goto done;
+    cur_type = e.type;
+    cur_inode = inode_open (e.inode_sector);
+    dir_close (cur_dir);
+    if (cur_type == DIRECTORY){
+      cur_dir = dir_open (cur_inode);
+    }
+  }
+  *inode = cur_inode;  
+  
+done:
   return *inode != NULL;
 }
 
@@ -217,8 +256,17 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
-  if (e.type == DIRECTORY && inode->open_cnt > 1)
-    goto done;
+  if (e.type == DIRECTORY){
+    if (inode->open_cnt > 1)
+      goto done;
+    struct dir *deleted_dir = dir_open (inode);
+    if (!dir_is_empty (deleted_dir)){
+      free (deleted_dir);
+      goto done;
+    }
+    dir_clear (deleted_dir);
+    free (deleted_dir);
+  }
 
   /* Erase directory entry. */
   e.in_use = false;

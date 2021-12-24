@@ -11,6 +11,7 @@
 #include "userprog/pagedir.h"
 #include "threads/malloc.h"
 #include "devices/input.h"
+#include "filesys/directory.h"
 
 /* Virtual memory address limit. */
 #define VADD_LIMIT 0x08048000
@@ -333,7 +334,11 @@ close (int fd)
     lock_release (&filesys_lock);
     exit (-1);
   }
-  file_close (f->f);
+  if (!f->is_dir)
+    file_close (f->f);
+  else{
+    dir_close (f->dir);
+  }
   list_remove (&f->f_listelem); 
   free (f);
   lock_release (&filesys_lock);
