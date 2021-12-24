@@ -48,19 +48,20 @@ byte_to_sector (const struct inode *inode, off_t pos)
     return -1;
 }
 
+static block_sector_t
+allocate_sector_id ()
+{
+  block_sector_t sector_id;
+  if (!free_map_allocate(1, &sector_id))
+    return -1;
+  static char zeros[BLOCK_SECTOR_SIZE];
+  block_write (fs_device, sector_id, zeros);
+  return sector_id;
+}
+
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
 static struct list open_inodes;
-
-static bool
-inode_disk_growth (struct inode_disk *disk_inode, off_t new_length)
-{
-  off_t ori_length = disk_inode->length;
-  size_t ori_sectors = bytes_to_sectors (ori_length);
-  size_t new_sectors = bytes_to_sectors (new_length);
-
-
-}
 
 static void
 inode_disk_clear (struct inode_disk *disk_inode)
@@ -78,7 +79,65 @@ inode_disk_clear (struct inode_disk *disk_inode)
     }
     free_map_release (dindirect_block[i], 1);
   }
-  free_map_release (disk_inode->dindirect_block);
+  free_map_release (disk_inode->dindirect_block, 1);
+}
+
+static bool
+inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_all)
+{
+  bool success = false;
+  off_t ori_length = disk_inode->length;
+  size_t ori_sectors = bytes_to_sectors (ori_length);
+  size_t new_sectors = bytes_to_sectors (new_length);
+
+  block_sector_t dindirect_block[BLOCK_IN_INDIRECT];
+  block_sector_t indirect_block[BLOCK_IN_INDIRECT];
+
+  if (ori_length > 0){
+    /* Adjust dindirect and indirect blocks to the end. */
+    block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
+    size_t indirect_end = byte_to_indirect_index (ori_length);
+    block_read (fs_device, dindirect_block[ori_length], indirect_block);
+  }
+  else{
+    /* Allocate a double indirect block first. */
+    block_sector_t id = allocate_sector_id ();
+    disk_inode->dindirect_block = id;
+  }
+
+  /* New data sectors. */
+  for (size_t i = ori_sectors; i < new_sectors; i++){
+    size_t dindirect_index = byte_to_dindirect_index (i*BLOCK_SECTOR_SIZE);
+    size_t indirect_index = byte_to_indirect_index (i*BLOCK_SECTOR_SIZE);
+
+    /* If a new indirect block is needed. */
+    if (indirect_index == 0){
+      block_sector_t id = allocate_sector_id ();
+      if (id == -1)
+        goto growth_end;
+      dindirect_block[dindirect_index] = id;
+    }
+
+    /* Allocate the new block sector. */
+    block_sector_t id = allocate_sector_id ();
+    if (id == -1)
+      goto growth_end;
+    indirect_block[indirect_index] = id;
+
+    /* If a indirect block is full, save it. */
+    if (indirect_index == BLOCK_IN_INDIRECT - 1 || i == new_sectors - 1){
+      block_write (fs_device, dindirect_block[dindirect_index], indirect_block);
+    }
+  }
+
+  block_write(fs_device, disk_inode->dindirect_block, dindirect_block);
+  success = true;
+
+growth_end:
+  if (!success && free_all){
+    inode_disk_clear (disk_inode);
+  }
+  return success;
 }
 
 
@@ -109,26 +168,10 @@ inode_create (block_sector_t sector, off_t length)
   ASSERT (sizeof *disk_inode == BLOCK_SECTOR_SIZE);
 
   disk_inode = calloc (1, sizeof *disk_inode);
-  if (disk_inode != NULL)
-    {
-      size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
-      disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->start)) 
-        {
-          block_write (fs_device, sector, disk_inode);
-          if (sectors > 0) 
-            {
-              static char zeros[BLOCK_SECTOR_SIZE];
-              size_t i;
-              
-              for (i = 0; i < sectors; i++) 
-                block_write (fs_device, disk_inode->start + i, zeros);
-            }
-          success = true; 
-        } 
-      free (disk_inode);
-    }
+  success = inode_disk_growth (disk_inode, length, true);
+  block_write (fs_device, sector, disk_inode);
+  free (disk_inode);
+ 
   return success;
 }
 
@@ -290,6 +333,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   if (inode->deny_write_cnt)
     return 0;
+
+  if (size + offset > inode->data.length)
+    inode_disk_growth (&inode->data, size + offset, false);
 
   while (size > 0) 
     {
