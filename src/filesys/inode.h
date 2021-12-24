@@ -16,8 +16,9 @@ struct inode_disk
   {
     block_sector_t dindirect_block;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
+    off_t capacity;
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    uint32_t unused[124];               /* Not used. */
   };
 
 /* In-memory inode. */

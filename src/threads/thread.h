@@ -106,7 +106,7 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-#ifdef USERPROG
+// #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct list child_list;             /* List of children threads. */
@@ -121,7 +121,9 @@ struct thread
     int fd;                             /* The available file descriptor for next file. */
     int exit_status;                    /* The exit status of this thread. */
     int has_exit;                       /* The flag of print exit msg */
-#endif
+
+    struct dir* current_dir;
+// #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
