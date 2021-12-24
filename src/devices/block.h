@@ -25,7 +25,7 @@ struct block;
 /* Type of a block device. */
 enum block_type
   {
-    /* Block device types that play a role in Pintos.  */
+    /* Block device types that play a role in Pintos. */
     BLOCK_KERNEL,                /* Pintos OS kernel. */
     BLOCK_FILESYS,               /* File system. */
     BLOCK_SCRATCH,               /* Scratch. */
