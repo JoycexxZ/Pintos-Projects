@@ -2,6 +2,7 @@
 #define USERPROG_SYSCALL_H
 #include "threads/interrupt.h"
 #include "filesys/file.h"
+#include "filesys/directory.h"
 #include <list.h>
 #include "filesys/filesys.h"
 
@@ -15,7 +16,7 @@ struct thread_file
     struct list_elem f_listelem;      /* List element for file list of thread. */
     int fd;                           /* The file descriptor. */
     bool is_dir;
-    struct dir* dir;
+    struct dir *dir;
 };
 
 void syscall_init (void);

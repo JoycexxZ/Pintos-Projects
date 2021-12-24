@@ -64,14 +64,15 @@ filesys_create (const char *name, off_t initial_size)
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 struct file *
-filesys_open (const char *name)
+filesys_open (struct dir *dir, const char *name, enum entry_type *type)
 {
-  struct dir *dir = dir_open_root ();
+  // struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
   if (dir != NULL)
-    dir_lookup (dir, name, &inode);
-  dir_close (dir);
+    dir_lookup (dir, name, &inode, type);
+  // dir_close (dir);
+
 
   return file_open (inode);
 }
@@ -81,11 +82,11 @@ filesys_open (const char *name)
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 bool
-filesys_remove (const char *name) 
+filesys_remove (struct dir *dir, const char *name) 
 {
-  struct dir *dir = dir_open_root ();
+  // struct dir *dir = dir_open_root ();
   bool success = dir != NULL && dir_remove (dir, name);
-  dir_close (dir); 
+  // dir_close (dir); 
 
   return success;
 }
