@@ -11,16 +11,6 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
-/* On-disk inode.
-   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
-struct inode_disk
-  {
-    block_sector_t start;               /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
-  };
-
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 static inline size_t
@@ -29,6 +19,15 @@ bytes_to_sectors (off_t size)
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
 }
 
+static size_t
+byte_to_dindirect_index (off_t pos){
+  return pos / BLOCK_IN_INDIRECT;
+}
+
+static size_t
+byte_to_indirect_index (off_t pos){
+  return pos - byte_to_dindirect_index (pos) * BLOCK_IN_INDIRECT;
+}
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -38,8 +37,13 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  if (pos < inode->data.length){
+    block_sector_t dindirect_block[BLOCK_IN_INDIRECT];
+    block_sector_t indirect_block[BLOCK_IN_INDIRECT];
+    block_read (fs_device, inode->data.dindirect_block, dindirect_block);
+    block_read (fs_device, dindirect_block[byte_to_dindirect_index(pos)], indirect_block);
+    return indirect_block[byte_to_indirect_index(pos)];
+  }
   else
     return -1;
 }
@@ -47,6 +51,36 @@ byte_to_sector (const struct inode *inode, off_t pos)
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
 static struct list open_inodes;
+
+static bool
+inode_disk_growth (struct inode_disk *disk_inode, off_t new_length)
+{
+  off_t ori_length = disk_inode->length;
+  size_t ori_sectors = bytes_to_sectors (ori_length);
+  size_t new_sectors = bytes_to_sectors (new_length);
+
+
+}
+
+static void
+inode_disk_clear (struct inode_disk *disk_inode)
+{
+  size_t dindirect_end = byte_to_dindirect_index (disk_inode->length) + 1;
+  block_sector_t dindirect_block[BLOCK_IN_INDIRECT];
+  block_sector_t indirect_block[BLOCK_IN_INDIRECT];
+  block_read (fs_device, disk_inode->dindirect_block, dindirect_block);
+  for (size_t i = 0; i < dindirect_end; i++){
+    block_read (fs_device, dindirect_block[i], indirect_block);
+    size_t indirect_end = (i == dindirect_end - 1)? 
+           byte_to_indirect_index (disk_inode->length)+1:BLOCK_IN_INDIRECT;
+    for (size_t j = 0; j < indirect_end; j++){
+      free_map_release (indirect_block[j], 1);
+    }
+    free_map_release (dindirect_block[i], 1);
+  }
+  free_map_release (disk_inode->dindirect_block);
+}
+
 
 /* Initializes the inode module. */
 void

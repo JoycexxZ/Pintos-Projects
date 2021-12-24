@@ -6,8 +6,6 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
-#define DIRECT_BLOCK_NUM 12
-#define INDIRECT_BLOCK_NUM 2
 #define BLOCK_IN_INDIRECT 128
 
 struct bitmap;
@@ -16,11 +14,10 @@ struct bitmap;
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
   {
-    block_sector_t direct_blocks[DIRECT_BLOCK_NUM];
-    block_sector_t indirect_block[INDIRECT_BLOCK_NUM];
-    off_t length;
+    block_sector_t dindirect_block;               /* First data sector. */
+    off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[112];               /* Not used. */
+    uint32_t unused[125];               /* Not used. */
   };
 
 /* In-memory inode. */
