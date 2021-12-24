@@ -21,12 +21,14 @@ bytes_to_sectors (off_t size)
 
 static size_t
 byte_to_dindirect_index (off_t pos){
-  return pos / BLOCK_IN_INDIRECT;
+  size_t sector_id = bytes_to_sectors (pos);
+  return sector_id / BLOCK_IN_INDIRECT;
 }
 
 static size_t
 byte_to_indirect_index (off_t pos){
-  return pos - byte_to_dindirect_index (pos) * BLOCK_IN_INDIRECT;
+  size_t sector_id = bytes_to_sectors (pos);
+  return sector_id - byte_to_dindirect_index (pos) * BLOCK_IN_INDIRECT;
 }
 
 /* Returns the block device sector that contains byte offset POS
@@ -96,10 +98,10 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
   if (ori_length > 0){
     /* Adjust dindirect and indirect blocks to the end. */
     block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
-    size_t indirect_end = byte_to_indirect_index (ori_length);
-    block_read (fs_device, dindirect_block[ori_length], indirect_block);
+    size_t dindirect_end = byte_to_dindirect_index (ori_length);
+    block_read (fs_device, dindirect_block[dindirect_end], indirect_block);
   }
-  else{
+  else if(new_length > 0){
     /* Allocate a double indirect block first. */
     block_sector_t id = allocate_sector_id ();
     disk_inode->dindirect_block = id;
@@ -133,7 +135,8 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
     }
   }
 
-  block_write(fs_device, disk_inode->dindirect_block, dindirect_block);
+  if (new_length > 0)
+    block_write(fs_device, disk_inode->dindirect_block, dindirect_block);
   success = true;
 
 growth_end:
