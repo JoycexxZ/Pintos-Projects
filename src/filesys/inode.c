@@ -123,6 +123,9 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
     if (id == -1)
       goto growth_end;
     indirect_block[indirect_index] = id;
+    disk_inode->length += BLOCK_SECTOR_SIZE;
+    disk_inode->length = (disk_inode->length < new_length)? 
+                          disk_inode->length : new_length;
 
     /* If a indirect block is full, save it. */
     if (indirect_index == BLOCK_IN_INDIRECT - 1 || i == new_sectors - 1){
