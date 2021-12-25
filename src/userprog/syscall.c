@@ -163,6 +163,34 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = read (fd, (void *)buffer, size);
     }
     break;
+
+  case SYS_CHDIR:
+    {
+      void *name_ptr = get_ith_arg (f, 0);
+      check_valid (name_ptr);
+      const char *name = (const char *)pagedir_get_page (thread_current ()->pagedir,
+                                                         name_ptr);
+      f->eax = chdir (name);
+    }
+  
+  case SYS_MKDIR:
+    {
+      void *name_ptr = get_ith_arg (f, 0);
+      check_valid (name_ptr);
+      const char *name = (const char *)pagedir_get_page (thread_current ()->pagedir,
+                                                         name_ptr);
+      f->eax = mkdir (name);
+    }
+
+  case SYS_READDIR:
+    {
+      int fd = get_ith_arg (f, 0);
+      void *name_ptr = get_ith_arg (f, 1);
+      check_valid (name_ptr);
+      const char *name = (const char *)pagedir_get_page (thread_current ()->pagedir,
+                                                         name_ptr);
+      f->eax = readdir (fd, name);
+    }
   
   default:
     exit(-1);

@@ -39,4 +39,8 @@ int filesize (int fd);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 
+bool chdir (const char *dir);
+bool mkdir (const char *dir);
+bool readdir (int fd, char *name);
+
 #endif /* userprog/syscall.h */
