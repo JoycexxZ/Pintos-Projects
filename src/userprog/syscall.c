@@ -466,6 +466,48 @@ read (int fd, void *buffer, unsigned size)
   return length;
 }
 
+
+/* Reads a directory entry from file descriptor fd, 
+   which must represent a directory. If successful, 
+   stores the null-terminated file name in name, 
+   which must have room for READDIR_MAX_LEN + 1 bytes, 
+   and returns true. If no entries are left in the 
+   directory, returns false. */
+bool
+readdir (int fd, char *name)
+{
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL || f->is_dir == false)
+    return false;
+  struct dir *f_dir = f->dir;
+  return dir_readdir (f_dir, name);
+}
+
+/* Returns true if fd represents a directory, 
+   false if it represents an ordinary file. */
+bool 
+isdir (int fd)
+{
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f == NULL)
+    return false;
+  return f->is_dir;
+}
+
+/* Returns the inode number of the inode 
+   associated with fd, which may represent an 
+   ordinary file or a directory. */
+int 
+inumber (int fd)
+{
+  struct thread_file *f = find_file_by_fd (fd);
+  if (f==NULL)
+    return false;
+  if (f->is_dir)
+    return (int)f->dir->inode->sector;
+  return (int)f->f->inode->sector;
+}
+
 /* check an address is valid or not, if not valid exit with -1.*/
 void 
 check_valid (const void *add)
