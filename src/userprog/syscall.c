@@ -191,6 +191,18 @@ syscall_handler (struct intr_frame *f UNUSED)
                                                          name_ptr);
       f->eax = readdir (fd, name);
     }
+
+  case SYS_ISDIR:
+    {
+      int fd = get_ith_arg (f, 0);
+      f->eax = isdir (fd);
+    }
+
+  case SYS_INUMBER:
+    {
+      int fd = get_ith_arg (f, 0);
+      f->eax = inumber (fd);
+    }
   
   default:
     exit(-1);
