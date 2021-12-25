@@ -23,6 +23,25 @@ static void syscall_handler (struct intr_frame *);
 /* Lock of the file system. */
 static struct lock filesys_lock;
 
+static void 
+split_name(char *path, char *parent, char *name)
+{
+  int len = strlen(path);
+  char *sub_name, *save_ptr;
+  char *temp = (char *)malloc(len + 1);
+  strncpy(temp, path, len + 1);
+  strncpy(name, path, len + 1);
+  for (size_t i = len - 1; i >= 0 && parent[i] == '/'; i--)
+  {
+    parent[i] = '\0';
+  }
+  for (sub_name = strtok_r(temp, '/', save_ptr); sub_name != NULL; sub_name = strtok_r(NULL, '/', save_ptr))
+  {
+    strncpy(name, sub_name, len + 1);
+  }
+  free(temp);
+}
+
 static struct thread_file*
 find_file_by_fd (int fd)
 {
@@ -490,8 +509,8 @@ bool mkdir (const char *dir)
   char *parent_dir = NULL;
   struct inode *dir_inode = NULL;
   struct inode *par_inode = NULL;
-  enum entry_type *par_type;
-  enum entry_type *dir_type;
+  enum entry_type par_type;
+  enum entry_type dir_type;
 
   int len = strlen(dir);
   parent_dir = (char *)malloc(len +1);
@@ -500,19 +519,23 @@ bool mkdir (const char *dir)
   {
     parent_dir[i] = '\0';
   }
-  if (!dir_lookup(thread_current()->current_dir, parent_dir, par_inode, par_type) || *par_type == FILE || 
+
+  
+  if (!dir_lookup(thread_current()->current_dir, parent_dir, par_inode, par_type) || par_type == FILE || 
        dir_lookup(thread_current()->current_dir, dir, dir_inode, dir_type))
   {
     free(parent_dir);
     lock_release(&filesys_lock);
     return false;
   }
-  if (!filesys_create(thread_current()->current_dir, dir, 5*sizeof(struct dir_entry), DIRECTORY))
+  if (!filesys_create(thread_current()->current_dir, dir, 5*sizeof(struct dir_entry), DIRECTORY) || filesys_create())
   {
     free(parent_dir);
     lock_release(&filesys_lock);
     return false;
   }
+
+
   free(parent_dir);
   lock_release(&filesys_lock);
   return true;
