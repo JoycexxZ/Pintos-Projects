@@ -145,7 +145,7 @@ dir_lookup (const struct dir *dir, const char *name,
 
   struct dir_entry e;
   char name_copy[100];
-  strlcpy (name_copy, name, strlen(name));
+  strlcpy (name_copy, name, strlen(name)+1);
   char *token, *save_ptr, *last;
   struct dir *cur_dir;
   enum entry_type cur_type;
