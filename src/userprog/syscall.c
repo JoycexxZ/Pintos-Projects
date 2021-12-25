@@ -31,7 +31,7 @@ split_name(char *path, char **parent, char **name)
   char *temp = (char *)malloc(len + 1);
   strncpy(temp, path, len + 1);
   strncpy(*parent, path, len + 1);
-  for (size_t i = len - 1; i >= 0 && *parent[i] == '/'; i--)
+  for (size_t i = len - 1; i > 0 && *parent[i] == '/'; i--)
   {
     *parent[i] = '\0';
   }
@@ -534,34 +534,33 @@ bool mkdir (const char *dir)
   struct inode *par_inode = NULL;
   enum entry_type par_type;
   enum entry_type dir_type;
+  bool success = true;
+
+  struct dir *parent_dir;
 
   int len = strlen(dir);
-  parent_dir = (char *)malloc(len +1);
-  strncpy(parent_dir, dir, len + 1);
-  for (size_t i = len -1; i >= 0 && parent_dir[i] != '/'; i--)
-  {
-    parent_dir[i] = '\0';
-  }
+  char *parent = (char *)malloc(len + 1);
+  char *name = (char *)malloc(len + 1);
+  split_name(dir, &parent, &name);
 
   
-  if (!dir_lookup(thread_current()->current_dir, parent_dir, par_inode, par_type) || par_type == FILE || 
-       dir_lookup(thread_current()->current_dir, dir, dir_inode, dir_type))
-  {
-    free(parent_dir);
-    lock_release(&filesys_lock);
-    return false;
-  }
-  if (!filesys_create(thread_current()->current_dir, dir, 5*sizeof(struct dir_entry), DIRECTORY) || filesys_create())
+  if (!dir_lookup(thread_current()->current_dir, parent_dir, &par_inode, par_type) || par_type == FILE || 
+       dir_lookup(thread_current()->current_dir, dir, &dir_inode, dir_type))
   {
     free(parent_dir);
     lock_release(&filesys_lock);
     return false;
   }
 
+  parent_dir = dir_open(par_inode);
 
+  if (!filesys_create(parent_dir, name, 5*sizeof(struct dir_entry), DIRECTORY))
+    success = false;
+
+  dir_close(parent_dir);
   free(parent_dir);
   lock_release(&filesys_lock);
-  return true;
+  return success;
 }
 
 /* Reads a directory entry from file descriptor fd, 
