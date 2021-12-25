@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
@@ -354,7 +355,7 @@ bool
 create (const char *file, unsigned initial_size)
 {
   lock_acquire(&filesys_lock);
-  bool ret = filesys_create(file, initial_size);
+  bool ret = filesys_create(thread_current()->current_dir, file, initial_size, FILE);
   lock_release(&filesys_lock);
   return ret;
 }
@@ -464,6 +465,57 @@ read (int fd, void *buffer, unsigned size)
   int length = (int)file_read (f->f, buffer, size);
   lock_release (&filesys_lock);
   return length;
+}
+
+bool chdir (const char *dir)
+{
+  lock_acquire(&filesys_lock);
+  struct inode *dir_inode = NULL;
+  enum entry_type *type;
+  if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, type) || (*type != DIRECTORY))
+  {
+    lock_release(&filesys_lock);
+    return false;
+  }
+  dir_close(thread_current()->current_dir);
+  thread_current()->current_dir = dir_open(dir_inode);
+  lock_release(&filesys_lock);
+  return true;
+  
+}
+
+bool mkdir (const char *dir)
+{
+  lock_acquire(&filesys_lock);
+  char *parent_dir = NULL;
+  struct inode *dir_inode = NULL;
+  struct inode *par_inode = NULL;
+  enum entry_type *par_type;
+  enum entry_type *dir_type;
+
+  int len = strlen(dir);
+  parent_dir = (char *)malloc(len +1);
+  strncpy(parent_dir, dir, len + 1);
+  for (size_t i = len -1; i >= 0 && parent_dir[i] != '/'; i--)
+  {
+    parent_dir[i] = '\0';
+  }
+  if (!dir_lookup(thread_current()->current_dir, parent_dir, par_inode, par_type) || *par_type == FILE || 
+       dir_lookup(thread_current()->current_dir, dir, dir_inode, dir_type))
+  {
+    free(parent_dir);
+    lock_release(&filesys_lock);
+    return false;
+  }
+  if (!filesys_create(thread_current()->current_dir, dir, 5*sizeof(struct dir_entry), DIRECTORY))
+  {
+    free(parent_dir);
+    lock_release(&filesys_lock);
+    return false;
+  }
+  free(parent_dir);
+  lock_release(&filesys_lock);
+  return true;
 }
 
 /* check an address is valid or not, if not valid exit with -1.*/
