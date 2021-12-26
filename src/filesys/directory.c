@@ -152,8 +152,16 @@ dir_lookup (const struct dir *dir, const char *name,
   struct inode *cur_inode;
   *inode = NULL;
 
+  // printf("name: %s\n",name);
   if (lookup (dir, name, &e, NULL)){
     *inode = inode_open (e.inode_sector);
+    *type = e.type;
+    goto done;
+  }
+
+  if (strlen(name) == 0)
+  {
+    *inode = dir->inode;
     goto done;
   }
 
@@ -161,7 +169,7 @@ dir_lookup (const struct dir *dir, const char *name,
     cur_dir = dir_open_root ();
   }
   else{
-    cur_dir = dir;
+    cur_dir = dir_reopen(dir);
   }
   cur_type = DIRECTORY;
 
@@ -180,6 +188,8 @@ dir_lookup (const struct dir *dir, const char *name,
     }
   }
   *inode = cur_inode;  
+  *type = cur_type;
+
   
 done:
   return *inode != NULL;

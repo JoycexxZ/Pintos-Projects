@@ -8,6 +8,8 @@
         "filesys.h": "c",
         "malloc.h": "c",
         "free-map.h": "c",
-        "round.h": "c"
+        "round.h": "c",
+        "string_view": "c",
+        "string.h": "c"
     }
 }

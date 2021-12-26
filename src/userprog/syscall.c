@@ -27,19 +27,38 @@ static void
 split_name(char *path, char **parent, char **name)
 {
   int len = strlen(path);
-  char *sub_name, *save_ptr;
-  char *temp = (char *)malloc(len + 1);
-  strlcpy(temp, path, len + 1);
-  strlcpy(*parent, path, len + 1);
-  for (size_t i = len - 1; i > 0 && *parent[i] == '/'; i--)
-  {
-    *parent[i] = '\0';
+  char *sub_name, *save_ptr, *parent_l = *parent, *name_l = *name;
+  strlcpy(parent_l, path, len + 1);
+  strlcpy(name_l, path, len + 1);
+
+  for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
+  int k = 0;
+  for(; len >= 0 && parent_l[len] != '/'; parent_l[len] = 0, len--){
+    name_l[k++] = parent_l[len];
   }
-  for (sub_name = strtok_r(temp, '/', &save_ptr); sub_name != NULL; sub_name = strtok_r(NULL, '/', &save_ptr))
-  {
-    strlcpy(*name, sub_name, len + 1);
+  name_l[k] = 0;
+  for(int i = 0, j = strlen(name_l) - 1; i < j; i++, j-- ){
+    name_l[i] ^= name_l[j];
+    name_l[j] ^= name_l[i];
+    name_l[i] ^= name_l[j];
   }
-  free(temp);
+  for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
+
+  // for (size_t i = len - 1; i >= 0 && parent_l[i] != '/'; i--)
+  // {
+  //   parent_l[i] = 0;
+  // }
+  // if (strlen(parent_l) == 0)
+  //   free(name_l);
+  //   return;
+
+  // char *temp = (char *)malloc((len + 1));
+  // strlcpy(temp, path, len + 1);
+  // for (sub_name = strtok_r(temp, '/', &save_ptr); sub_name != NULL; sub_name = strtok_r(NULL, '/', &save_ptr))
+  // {
+  //   strlcpy(name_l, sub_name, len + 1);
+  // }
+  // free(temp);
 }
 
 static struct thread_file*
@@ -192,6 +211,7 @@ syscall_handler (struct intr_frame *f UNUSED)
                                                          name_ptr);
       f->eax = chdir (name);
     }
+    break;
   
   case SYS_MKDIR:
     {
@@ -201,6 +221,7 @@ syscall_handler (struct intr_frame *f UNUSED)
                                                          name_ptr);
       f->eax = mkdir (name);
     }
+    break;
 
   case SYS_READDIR:
     {
@@ -211,18 +232,21 @@ syscall_handler (struct intr_frame *f UNUSED)
                                                          name_ptr);
       f->eax = readdir (fd, name);
     }
+    break;
 
   case SYS_ISDIR:
     {
       int fd = get_ith_arg (f, 0);
       f->eax = isdir (fd);
     }
+    break;
 
   case SYS_INUMBER:
     {
       int fd = get_ith_arg (f, 0);
       f->eax = inumber (fd);
     }
+    break;
   
   default:
     exit(-1);
@@ -245,6 +269,8 @@ Conventionally, a status of 0 indicates success and nonzero values indicate erro
 void 
 exit (int status)
 {
+  // if (status == -1)
+    // printf("hh\n");
   struct thread *cur = thread_current ();
   while (!list_empty(&cur->files))
   {
@@ -375,8 +401,8 @@ create (const char *file, unsigned initial_size)
 {
   lock_acquire(&filesys_lock);
   char *parent, *name;
-  parent = (char *)malloc (strlen (file) + 1);
-  name = (char *)malloc (strlen (file) + 1);
+  parent = (char *)malloc ((strlen (file) + 1));
+  name = (char *)malloc ((strlen (file) + 1));
   split_name (file, &parent, &name);
   bool ret;
 
@@ -384,20 +410,27 @@ create (const char *file, unsigned initial_size)
   struct inode *dir_inode;
   enum entry_type type;
   struct dir *parent_dir;
+  // printf("1sector: %d\n", thread_current()->current_dir->inode->sector);
 
-  if (parent[0] != "/0"){
+  if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
       return false;
-    parent_dir = dir_open (dir_inode);
+  // printf("2sector: %d\n", thread_current()->current_dir->inode->sector);
+    parent_dir = dir_open ( inode_reopen(dir_inode));
+
     ret = filesys_create (parent_dir, name, initial_size, FILE);
+  // printf("3sector: %d\n", thread_current()->current_dir->inode->sector);
+
     dir_close (parent_dir);
+  // printf("4sector: %d\n", thread_current()->current_dir->inode->sector);
+
   }
   else{
     ret = filesys_create (thread_current ()->current_dir, name, initial_size, FILE);
   }
 
-  free (parent);
   free (name);
+  free (parent);
   lock_release(&filesys_lock);
   return ret;
 }
@@ -513,12 +546,15 @@ bool chdir (const char *dir)
 {
   lock_acquire(&filesys_lock);
   struct inode *dir_inode = NULL;
-  enum entry_type *type;
-  if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, type) || (*type != DIRECTORY))
+  enum entry_type type;
+  // printf("tid: %d, par_dir: %d\n", thread_current()->tid, thread_current()->current_dir->inode->sector);
+  if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, &type) || (type != DIRECTORY))
   {
+    // printf("here\n");
     lock_release(&filesys_lock);
     return false;
   }
+  // printf("last dir: %x, new_dir_inode: %x\n", thread_current()->current_dir, dir_inode);
   dir_close(thread_current()->current_dir);
   thread_current()->current_dir = dir_open(dir_inode);
   lock_release(&filesys_lock);
@@ -528,6 +564,9 @@ bool chdir (const char *dir)
 
 bool mkdir (const char *dir)
 {
+  if (strlen(dir) == 0)
+    return false;
+
   lock_acquire(&filesys_lock);
 
   struct inode *dir_inode = NULL;
@@ -538,28 +577,36 @@ bool mkdir (const char *dir)
 
   struct dir *parent_dir;
 
+
   int len = strlen(dir);
-  char *parent = (char *)malloc(len + 1);
-  char *name = (char *)malloc(len + 1);
+  char *parent = (char *)malloc((len + 1));
+  char *name = (char *)malloc((len + 1));
   split_name(dir, &parent, &name);
+
+  // printf("parent: %s, name: %s\n",parent, name);
 
   
   if (!dir_lookup(thread_current()->current_dir, parent, &par_inode, &par_type) || par_type == FILE || 
        dir_lookup(thread_current()->current_dir, dir, &dir_inode, &dir_type))
   {
-    free(parent_dir);
+    free(parent);
+    free(name);
     lock_release(&filesys_lock);
     return false;
   }
 
-  parent_dir = dir_open(par_inode);
+  // printf("parent_sector: %d\n", par_inode->sector);
+  parent_dir = dir_open(inode_reopen(par_inode));
 
   if (!filesys_create(parent_dir, name, 5*sizeof(struct dir_entry), DIRECTORY))
     success = false;
 
   dir_close(parent_dir);
-  free(parent_dir);
+  free(parent);
+  free(name);
   lock_release(&filesys_lock);
+  // printf("success: %d\n", success);
+  // printf("tid: %d,par_dir: %x\n",thread_current()->tid, thread_current()->current_dir);
   return success;
 }
 
