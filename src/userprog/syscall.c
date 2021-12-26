@@ -29,15 +29,15 @@ split_name(char *path, char **parent, char **name)
   int len = strlen(path);
   char *sub_name, *save_ptr;
   char *temp = (char *)malloc(len + 1);
-  strncpy(temp, path, len + 1);
-  strncpy(*parent, path, len + 1);
+  strlcpy(temp, path, len + 1);
+  strlcpy(*parent, path, len + 1);
   for (size_t i = len - 1; i > 0 && *parent[i] == '/'; i--)
   {
     *parent[i] = '\0';
   }
-  for (sub_name = strtok_r(temp, '/', save_ptr); sub_name != NULL; sub_name = strtok_r(NULL, '/', save_ptr))
+  for (sub_name = strtok_r(temp, '/', &save_ptr); sub_name != NULL; sub_name = strtok_r(NULL, '/', &save_ptr))
   {
-    strncpy(*name, sub_name, len + 1);
+    strlcpy(*name, sub_name, len + 1);
   }
   free(temp);
 }
@@ -393,7 +393,7 @@ create (const char *file, unsigned initial_size)
     dir_close (parent_dir);
   }
   else{
-    ret = filesys_create (thread_current ()->current_dir, initial_size, FILE);
+    ret = filesys_create (thread_current ()->current_dir, name, initial_size, FILE);
   }
 
   free (parent);
@@ -529,7 +529,7 @@ bool chdir (const char *dir)
 bool mkdir (const char *dir)
 {
   lock_acquire(&filesys_lock);
-  char *parent_dir = NULL;
+
   struct inode *dir_inode = NULL;
   struct inode *par_inode = NULL;
   enum entry_type par_type;
@@ -544,8 +544,8 @@ bool mkdir (const char *dir)
   split_name(dir, &parent, &name);
 
   
-  if (!dir_lookup(thread_current()->current_dir, parent_dir, &par_inode, par_type) || par_type == FILE || 
-       dir_lookup(thread_current()->current_dir, dir, &dir_inode, dir_type))
+  if (!dir_lookup(thread_current()->current_dir, parent, &par_inode, &par_type) || par_type == FILE || 
+       dir_lookup(thread_current()->current_dir, dir, &dir_inode, &dir_type))
   {
     free(parent_dir);
     lock_release(&filesys_lock);

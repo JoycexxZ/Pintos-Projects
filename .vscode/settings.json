@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.inc": "c",
+        "atomic": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "sstream": "c",
+        "filesys.h": "c",
+        "malloc.h": "c",
+        "free-map.h": "c",
+        "round.h": "c"
+    }
+}

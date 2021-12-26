@@ -20,7 +20,7 @@
 #include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (const char *cmdline, void (**eip) (void), void **esp, struct thread *parent);
 static void find_thread_by_tid (struct thread *matching, void * aux UNUSED);
 
 /* The target tid when calling `find_thread_by_tid ()`. */
@@ -49,8 +49,15 @@ process_execute (const char *file_name)
 
   real_name = strtok_r(file_name," ", &save_ptr);
 
+  struct process_info *info = (struct process_info *)malloc(sizeof(struct process_info));
+  info->file_name = fn_copy;
+  info->parent = thread_current();
+  if (thread_current ()->current_dir == NULL){
+    thread_current ()->current_dir = dir_open_root ();
+  }
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (real_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (real_name, PRI_DEFAULT, start_process, info);
   strlcpy (file_name, fn_copy, PGSIZE);
 
   if (tid == TID_ERROR)
@@ -63,15 +70,23 @@ process_execute (const char *file_name)
   And we will block the running thread until the child thread finish loading*/
   target_tid = tid;
   struct child_thread * child_thread = (struct child_thread *)malloc (sizeof(struct child_thread));
+
   enum intr_level old_level = intr_disable();
   thread_foreach(*find_thread_by_tid, NULL);
+  intr_set_level(old_level);
+
   child_thread->tid = tid;
   child_thread->t = find_it;
   child_thread->exit_status = -1;
   child_thread->exited = false;
+  
+  find_it->current_dir = dir_reopen (thread_current()->current_dir);
+  
+  lock_acquire(&thread_current()->child_list_lock);
   list_push_back(&thread_current()->child_list, &child_thread->child_elem);
+  lock_release(&thread_current()->child_list_lock);
+
   find_it->parent = thread_current();
-  intr_set_level(old_level);
   sema_down(&thread_current()->load_sema);
   
   /*If the child thread load fail return -1*/
@@ -89,8 +104,10 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *info_)
 {
+  struct process_info *info = (struct process_info *)info_;
+  void *file_name_ = (void *)info->file_name;
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -119,7 +136,7 @@ start_process (void *file_name_)
     argc++;
   }
 
-  success = load (argv[0], &if_.eip, &if_.esp);
+  success = load (argv[0], &if_.eip, &if_.esp, info->parent);
   /* Tell mian process load complete*/
   sema_up(&thread_current()->parent->load_sema);
 
@@ -275,6 +292,7 @@ process_exit (void)
         child_thread->exit_status = cur->exit_status;
       }
       file_close(cur->file);
+      dir_close(cur->current_dir);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
@@ -371,7 +389,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *file_name, void (**eip) (void), void **esp, struct thread *parent) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -387,10 +405,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  enum entry_type type;    
   
-  
-  file = filesys_open (file_name);
-  
+  file = filesys_open (parent->current_dir, file_name, &type);
+
+    // struct dir *dir = dir_open_root();
+    // file = filesys_open (dir, file_name, &type);
+    // dir_close(dir);
   
   if (file == NULL) 
     {

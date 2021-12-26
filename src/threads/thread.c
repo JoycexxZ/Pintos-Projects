@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "threads/malloc.h"
@@ -206,7 +207,8 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
+  // if (strcmp(name, "idle"))
+    t->current_dir = NULL;
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -474,7 +476,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-
+  
 #ifdef USERPROG
   list_init(&t->child_list);
   list_init(&t->files);

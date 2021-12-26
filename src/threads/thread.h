@@ -25,6 +25,11 @@ struct child_thread
    struct list_elem child_elem;        /* List element for children thread list. */
    bool exited;                        /* The child thread is exited or not. */
 };
+struct process_info
+{
+   char *file_name;
+   struct thread *parent;
+};
 
 
 /* Thread identifier type.

@@ -10,6 +10,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
+#include "threads/thread.h"
 
 /* List files in the root directory. */
 void
@@ -39,7 +40,17 @@ fsutil_cat (char **argv)
   char *buffer;
 
   printf ("Printing '%s' to the console...\n", file_name);
-  file = filesys_open (file_name);
+
+  enum entry_type type;
+  if (thread_current()->current_dir != NULL)
+    file = filesys_open (thread_current()->current_dir, file_name, &type);
+  else
+  {
+    struct dir *dir = dir_open_root();
+    file = filesys_open (dir, file_name, &type);
+    dir_close(dir);
+  }
+
   if (file == NULL)
     PANIC ("%s: open failed", file_name);
   buffer = palloc_get_page (PAL_ASSERT);
@@ -63,7 +74,18 @@ fsutil_rm (char **argv)
   const char *file_name = argv[1];
   
   printf ("Deleting '%s'...\n", file_name);
-  if (!filesys_remove (file_name))
+
+  bool success;
+  if (thread_current()->current_dir != NULL)
+    success = filesys_remove (thread_current()->current_dir, file_name);
+  else
+  {
+    struct dir *dir = dir_open_root();
+    success = filesys_remove (dir, file_name);
+    dir_close(dir);
+  }
+
+  if (!success)
     PANIC ("%s: delete failed\n", file_name);
 }
 
@@ -117,10 +139,32 @@ fsutil_extract (char **argv UNUSED)
 
           printf ("Putting '%s' into the file system...\n", file_name);
 
+
+          
+          bool success;
+          if (thread_current()->current_dir != NULL)
+            success = filesys_create (thread_current()->current_dir, file_name, size, FILE);
+          else
+          {
+            struct dir *dir = dir_open_root();
+            success = filesys_create (dir, file_name, size, FILE);
+            dir_close(dir);
+          }
+
           /* Create destination file. */
-          if (!filesys_create (file_name, size))
+          if (!success)
             PANIC ("%s: create failed", file_name);
-          dst = filesys_open (file_name);
+
+          enum entry_type type2;
+          if (thread_current()->current_dir != NULL)
+            dst = filesys_open (thread_current()->current_dir, file_name, &type2);
+          else
+          {
+            struct dir *dir = dir_open_root();
+            dst = filesys_open (dir, file_name, &type2);
+            dir_close(dir);
+          }
+          // dst = filesys_open (file_name);
           if (dst == NULL)
             PANIC ("%s: open failed", file_name);
 
@@ -182,7 +226,18 @@ fsutil_append (char **argv)
     PANIC ("couldn't allocate buffer");
 
   /* Open source file. */
-  src = filesys_open (file_name);
+
+  enum entry_type type;
+  if (thread_current()->current_dir != NULL)
+    src = filesys_open (thread_current()->current_dir, file_name, &type);
+  else
+  {
+    struct dir *dir = dir_open_root();
+    src = filesys_open (dir, file_name, &type);
+    dir_close(dir);
+  }
+
+  // src = filesys_open (file_name);
   if (src == NULL)
     PANIC ("%s: open failed", file_name);
   size = file_length (src);
