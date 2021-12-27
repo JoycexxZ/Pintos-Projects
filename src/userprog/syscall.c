@@ -369,7 +369,7 @@ open (const char *file)
   parent = (char *)malloc ((strlen (file) + 1));
   name = (char *)malloc ((strlen (file) + 1));
   split_name (file, &parent, &name);
-  bool ret;
+  struct file *f;
 
   struct dir_entry e;
   struct inode *dir_inode;
@@ -382,21 +382,23 @@ open (const char *file)
     return -1;
   }
 
+  // printf("parent: %s, name: %s\n",parent, name);
+  
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
       return false;
 
     parent_dir = dir_open ( inode_reopen(dir_inode));
 
-    ret = filesys_open (parent_dir, name, type);
+    f = filesys_open (parent_dir, name, &type);
 
     dir_close (parent_dir);
   }
   else{
-    ret = filesys_open (thread_current ()->current_dir, name, type);
+    f = filesys_open (thread_current ()->current_dir, name, &type);
   }
 
-  struct file *f = filesys_open (thread_current()->current_dir, file, &type);
+  // struct file *f = filesys_open (thread_current()->current_dir, file, &type);
   if (f == NULL)
   {
     lock_release(&filesys_lock);
@@ -412,7 +414,7 @@ open (const char *file)
   struct thread *cur = thread_current ();
   if (type == DIRECTORY){
     thread_f->is_dir = true;
-    thread_f->dir = dir_open(inode_open(file_get_inode(f)));
+    thread_f->dir = dir_open(inode_reopen(file_get_inode(f)));
   }
   else
     thread_f->is_dir = false;

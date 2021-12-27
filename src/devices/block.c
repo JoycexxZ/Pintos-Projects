@@ -106,6 +106,7 @@ check_sector (struct block *block, block_sector_t sector)
 {
   if (sector >= block->size)
     {
+      int i;
       /* We do not use ASSERT because we want to panic here
          regardless of whether NDEBUG is defined. */
       PANIC ("Access past end of device %s (sector=%"PRDSNu", "
