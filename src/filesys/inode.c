@@ -69,7 +69,7 @@ static struct list open_inodes;
 static void
 inode_disk_clear (struct inode_disk *disk_inode)
 {
-  size_t dindirect_end = byte_to_dindirect_index (disk_inode->length) + 1;
+  size_t dindirect_end = byte_to_dindirect_index (disk_inode->length - 1) + 1;
   block_sector_t dindirect_block[BLOCK_IN_INDIRECT];
   block_sector_t indirect_block[BLOCK_IN_INDIRECT];
   block_read (fs_device, disk_inode->dindirect_block, dindirect_block);
@@ -102,7 +102,7 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
   if (ori_length > 0){
     /* Adjust dindirect and indirect blocks to the end. */
     block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
-    size_t dindirect_end = byte_to_dindirect_index (ori_length);
+    size_t dindirect_end = byte_to_dindirect_index (ori_length - 1);
     block_read (fs_device, dindirect_block[dindirect_end], indirect_block);
   }
   else if(new_length > 0){

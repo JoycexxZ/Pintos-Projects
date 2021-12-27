@@ -192,6 +192,9 @@ dir_lookup (const struct dir *dir, const char *name,
   }
   *inode = cur_inode;  
   *type = cur_type;
+  if (cur_type == DIRECTORY){
+    dir_close (cur_dir);
+  }
 
   
 done:

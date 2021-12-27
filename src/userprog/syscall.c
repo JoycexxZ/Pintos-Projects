@@ -419,10 +419,12 @@ open (const char *file)
   if (type == DIRECTORY){
     thread_f->is_dir = true;
     thread_f->dir = dir_open(inode_reopen(file_get_inode(f)));
+    file_close (f);
   }
-  else
+  else{
     thread_f->is_dir = false;
-  thread_f->f = f;
+    thread_f->f = f;
+  }
   thread_f->fd = cur->fd;
   cur->fd++;
   list_push_back (&cur->files, &thread_f->f_listelem);
@@ -439,6 +441,9 @@ bool
 create (const char *file, unsigned initial_size)
 {
   lock_acquire(&filesys_lock);
+
+  // printf ("create - file: %s\n", file);
+
   char *parent, *name;
   parent = (char *)malloc ((strlen (file) + 1));
   name = (char *)malloc ((strlen (file) + 1));
@@ -619,15 +624,12 @@ bool chdir (const char *dir)
   lock_acquire(&filesys_lock);
   struct inode *dir_inode = NULL;
   enum entry_type type;
-  // printf("tid: %d, par_dir: %d\n", thread_current()->tid, thread_current()->current_dir->inode->sector);
   if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, &type) || (type != DIRECTORY))
   {
-    // printf("here\n");
     lock_release(&filesys_lock);
     return false;
   }
-  // printf("last dir: %x, new_dir_inode: %x\n", thread_current()->current_dir, dir_inode);
-  dir_close(thread_current()->current_dir);
+  dir_close (thread_current()->current_dir);
   thread_current()->current_dir = dir_open(dir_inode);
   lock_release(&filesys_lock);
   return true;
