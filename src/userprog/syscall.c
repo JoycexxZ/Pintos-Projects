@@ -29,7 +29,7 @@ split_name(char *path, char **parent, char **name)
   int len = strlen(path);
   char *sub_name, *save_ptr, *parent_l = *parent, *name_l = *name;
   strlcpy(parent_l, path, len + 1);
-  strlcpy(name_l, path, len + 1);
+  // strlcpy(name_l, path, len + 1);
 
   for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
   int k = 0;
@@ -348,6 +348,10 @@ write (int fd, const void *buffer, unsigned size)
     lock_release(&filesys_lock);
     return 0;
   } 
+  if (f->is_dir){
+    lock_release (&filesys_lock);
+    return -1;
+  }
   int real_size = (int)file_write(f->f, buffer, (off_t)size);
   lock_release (&filesys_lock);
   return real_size;
@@ -361,8 +365,37 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
+  char *parent, *name;
+  parent = (char *)malloc ((strlen (file) + 1));
+  name = (char *)malloc ((strlen (file) + 1));
+  split_name (file, &parent, &name);
+  bool ret;
+
+  struct dir_entry e;
+  struct inode *dir_inode;
   enum entry_type type;
+  struct dir *parent_dir;
   
+  if (strlen (file) == 0)
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+
+  if (strlen(parent) != 0){
+    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
+      return false;
+
+    parent_dir = dir_open ( inode_reopen(dir_inode));
+
+    ret = filesys_open (parent_dir, name, type);
+
+    dir_close (parent_dir);
+  }
+  else{
+    ret = filesys_open (thread_current ()->current_dir, name, type);
+  }
+
   struct file *f = filesys_open (thread_current()->current_dir, file, &type);
   if (f == NULL)
   {
@@ -442,7 +475,33 @@ bool
 remove (const char *file)
 {
   lock_acquire(&filesys_lock);
-  bool ret = filesys_remove(thread_current()->current_dir, file);
+  char *parent, *name;
+  parent = (char *)malloc ((strlen (file) + 1));
+  name = (char *)malloc ((strlen (file) + 1));
+  split_name (file, &parent, &name);
+  bool ret;
+
+  struct dir_entry e;
+  struct inode *dir_inode;
+  enum entry_type type;
+  struct dir *parent_dir;
+
+  if (strlen(parent) != 0){
+    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
+      return false;
+
+    parent_dir = dir_open ( inode_reopen(dir_inode));
+
+    ret = filesys_remove (parent_dir, name, thread_current ()->current_dir->inode);
+
+    dir_close (parent_dir);
+  }
+  else{
+    ret = filesys_remove (thread_current ()->current_dir, name, thread_current ()->current_dir->inode);
+  }
+
+  free (name);
+  free (parent);
   lock_release(&filesys_lock);
   return ret;
 }
@@ -532,7 +591,7 @@ read (int fd, void *buffer, unsigned size)
   }
 
   struct thread_file *f = find_file_by_fd (fd);
-  if (f == NULL){
+  if (f == NULL || f->is_dir){
     lock_release (&filesys_lock);
     return -1;
   }

@@ -96,10 +96,10 @@ filesys_open (struct dir *dir, const char *name, enum entry_type *type)
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 bool
-filesys_remove (struct dir *dir, const char *name) 
+filesys_remove (struct dir *dir, const char *name, block_sector_t cwd) 
 {
   // struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
+  bool success = dir != NULL && dir_remove (dir, name, cwd);
   // dir_close (dir); 
 
   return success;

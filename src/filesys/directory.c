@@ -247,7 +247,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, enum en
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
 bool
-dir_remove (struct dir *dir, const char *name) 
+dir_remove (struct dir *dir, const char *name, block_sector_t cwd) 
 {
   struct dir_entry e;
   struct inode *inode = NULL;
@@ -259,6 +259,9 @@ dir_remove (struct dir *dir, const char *name)
 
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
+    goto done;
+
+  if (e.inode_sector == 1 || e.inode_sector == cwd)
     goto done;
 
   /* Open inode. */

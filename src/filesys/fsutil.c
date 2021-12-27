@@ -77,11 +77,11 @@ fsutil_rm (char **argv)
 
   bool success;
   if (thread_current()->current_dir != NULL)
-    success = filesys_remove (thread_current()->current_dir, file_name);
+    success = filesys_remove (thread_current()->current_dir, file_name, thread_current()->current_dir->inode);
   else
   {
     struct dir *dir = dir_open_root();
-    success = filesys_remove (dir, file_name);
+    success = filesys_remove (dir, file_name, 1);
     dir_close(dir);
   }
 
