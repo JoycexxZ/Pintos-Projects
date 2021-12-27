@@ -178,7 +178,7 @@ dir_lookup (const struct dir *dir, const char *name,
   for (token = strtok_r (name_copy, "/", &save_ptr);
        token != NULL;
        token = strtok_r (NULL, "/", &save_ptr)){
-    printf ("in loop, token: %s\n", token);
+    // printf ("in loop, token: %s\n", token);
     if (cur_type != DIRECTORY)
       goto done;
     if (!lookup (cur_dir, token, &e, NULL))
@@ -195,7 +195,7 @@ dir_lookup (const struct dir *dir, const char *name,
 
   
 done:
-  printf ("in look up, name: %s, inode: %x\n", name, *inode);
+  // printf ("in look up, name: %s, inode: %x\n", name, *inode);
 
   return *inode != NULL;
 }

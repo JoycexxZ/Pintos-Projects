@@ -385,14 +385,13 @@ open (const char *file)
     return -1;
   }
 
-  printf ("parent: %s, name: %s\n",parent, name);
+  // printf ("parent: %s, name: %s\n",parent, name);
   // printf ("cwd: %d\n", thread_current()->current_dir->inode->sector);
   
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
       return false;
 
-    printf("par_sector: %d\n", parent_dir->inode->sector);
     parent_dir = dir_open (inode_reopen(dir_inode));
 
     f = filesys_open (parent_dir, name, &type);
