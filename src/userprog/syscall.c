@@ -44,6 +44,9 @@ split_name(char *path, char **parent, char **name)
   }
   for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
 
+  if (strcmp(path, "/") == 0)
+    strlcpy(name_l, path, len + 1);
+
   // for (size_t i = len - 1; i >= 0 && parent_l[i] != '/'; i--)
   // {
   //   parent_l[i] = 0;
@@ -382,7 +385,8 @@ open (const char *file)
     return -1;
   }
 
-  // printf("parent: %s, name: %s\n",parent, name);
+  printf ("parent: %s, name: %s\n",parent, name);
+  // printf ("cwd: %d\n", thread_current()->current_dir->inode->sector);
   
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
@@ -634,10 +638,9 @@ bool mkdir (const char *dir)
   struct inode *par_inode = NULL;
   enum entry_type par_type;
   enum entry_type dir_type;
-  bool success = true;
+  bool success = false;
 
   struct dir *parent_dir;
-
 
   int len = strlen(dir);
   char *parent = (char *)malloc((len + 1));
@@ -646,23 +649,21 @@ bool mkdir (const char *dir)
 
   // printf("parent: %s, name: %s\n",parent, name);
 
-  
-  if (!dir_lookup(thread_current()->current_dir, parent, &par_inode, &par_type) || par_type == FILE || 
+  if (strlen (parent) != 0){
+    if (!dir_lookup(thread_current()->current_dir, parent, &par_inode, &par_type) || par_type == FILE || 
        dir_lookup(thread_current()->current_dir, dir, &dir_inode, &dir_type))
-  {
-    free(parent);
-    free(name);
-    lock_release(&filesys_lock);
-    return false;
+      goto done;
+    parent_dir = dir_open(inode_reopen(par_inode));
+    success = filesys_create(parent_dir, name, 5*sizeof(struct dir_entry), DIRECTORY);
+    dir_close(parent_dir);
+  }
+  else {
+    if (dir_lookup (thread_current()->current_dir, dir, &dir_inode, &dir_type))
+      goto done;
+    success = filesys_create (thread_current ()->current_dir, name, 5*sizeof(struct dir_entry), DIRECTORY);
   }
 
-  // printf("parent_sector: %d\n", par_inode->sector);
-  parent_dir = dir_open(inode_reopen(par_inode));
-
-  if (!filesys_create(parent_dir, name, 5*sizeof(struct dir_entry), DIRECTORY))
-    success = false;
-
-  dir_close(parent_dir);
+done:
   free(parent);
   free(name);
   lock_release(&filesys_lock);
