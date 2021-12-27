@@ -152,7 +152,6 @@ dir_lookup (const struct dir *dir, const char *name,
   struct inode *cur_inode;
   *inode = NULL;
 
-  // printf("name: %s\n",name);
   if (lookup (dir, name, &e, NULL)){
     *inode = inode_open (e.inode_sector);
     *type = e.type;
@@ -168,15 +167,18 @@ dir_lookup (const struct dir *dir, const char *name,
   if (name[0] == '/'){
     // printf("hh\n");
     cur_dir = dir_open_root ();
+    cur_inode = cur_dir->inode; 
   }
   else{
     cur_dir = dir_reopen(dir);
+    cur_inode = cur_dir->inode; 
   }
   cur_type = DIRECTORY;
 
   for (token = strtok_r (name_copy, "/", &save_ptr);
        token != NULL;
        token = strtok_r (NULL, "/", &save_ptr)){
+    printf ("in loop, token: %s\n", token);
     if (cur_type != DIRECTORY)
       goto done;
     if (!lookup (cur_dir, token, &e, NULL))
@@ -193,6 +195,8 @@ dir_lookup (const struct dir *dir, const char *name,
 
   
 done:
+  printf ("in look up, name: %s, inode: %x\n", name, *inode);
+
   return *inode != NULL;
 }
 
@@ -307,7 +311,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
-      if (e.in_use && e.name != ".." && e.name != ".")
+      if (e.in_use && strcmp(e.name, "..") && strcmp(e.name, "."))
         {
           strlcpy (name, e.name, NAME_MAX + 1);
           return true;
