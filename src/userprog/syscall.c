@@ -392,7 +392,7 @@ open (const char *file)
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
       return false;
 
-    parent_dir = dir_open (inode_reopen(dir_inode));
+    parent_dir = dir_open (dir_inode);
 
     f = filesys_open (parent_dir, name, &type);
 
@@ -418,7 +418,7 @@ open (const char *file)
   struct thread *cur = thread_current ();
   if (type == DIRECTORY){
     thread_f->is_dir = true;
-    thread_f->dir = dir_open(inode_reopen(file_get_inode(f)));
+    thread_f->dir = dir_open(file_get_inode(f));
   }
   else
     thread_f->is_dir = false;
@@ -458,7 +458,7 @@ create (const char *file, unsigned initial_size)
       goto done;
     }
   // printf("2sector: %d\n", thread_current()->current_dir->inode->sector);
-    parent_dir = dir_open ( inode_reopen(dir_inode));
+    parent_dir = dir_open (dir_inode);
 
     ret = filesys_create (parent_dir, name, initial_size, FILE);
   // printf("3sector: %d\n", thread_current()->current_dir->inode->sector);
@@ -495,6 +495,8 @@ remove (const char *file)
   struct inode *dir_inode;
   enum entry_type type;
   struct dir *parent_dir;
+  printf("path: %s\n",file);
+  printf("parent: %s, name: %s\n",parent, name);
 
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY){
@@ -502,14 +504,16 @@ remove (const char *file)
       goto done;
     }
 
-    parent_dir = dir_open ( inode_reopen(dir_inode));
+    parent_dir = dir_open (dir_inode);
 
     ret = filesys_remove (parent_dir, name, thread_current ()->current_dir->inode);
+    printf("ret at 1: %d\n", ret);
 
     dir_close (parent_dir);
   }
   else{
     ret = filesys_remove (thread_current ()->current_dir, name, thread_current ()->current_dir->inode);
+    printf("ret at 2: %d\n", ret);
   }
 
 done:
@@ -618,6 +622,7 @@ bool chdir (const char *dir)
 {
   lock_acquire(&filesys_lock);
   struct inode *dir_inode = NULL;
+  printf("cur_dir before: %x\n", thread_current()->current_dir);
   enum entry_type type;
   // printf("tid: %d, par_dir: %d\n", thread_current()->tid, thread_current()->current_dir->inode->sector);
   if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, &type) || (type != DIRECTORY))
@@ -629,6 +634,7 @@ bool chdir (const char *dir)
   // printf("last dir: %x, new_dir_inode: %x\n", thread_current()->current_dir, dir_inode);
   dir_close(thread_current()->current_dir);
   thread_current()->current_dir = dir_open(dir_inode);
+  printf("cur_dir after: %x\n", thread_current()->current_dir);
   lock_release(&filesys_lock);
   return true;
   
@@ -660,7 +666,7 @@ bool mkdir (const char *dir)
     if (!dir_lookup(thread_current()->current_dir, parent, &par_inode, &par_type) || par_type == FILE || 
        dir_lookup(thread_current()->current_dir, dir, &dir_inode, &dir_type))
       goto done;
-    parent_dir = dir_open(inode_reopen(par_inode));
+    parent_dir = dir_open(par_inode);
     success = filesys_create(parent_dir, name, 5*sizeof(struct dir_entry), DIRECTORY);
     dir_close(parent_dir);
   }
