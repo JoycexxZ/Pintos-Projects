@@ -5,7 +5,24 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
+
+static block_sector_t
+find_parent(struct dir *dir)
+{
+  struct dir_entry e;
+
+  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
+    {
+      dir->pos += sizeof e;
+      if (e.in_use && !strcmp(e.name, "..") && strcmp(e.name, "."))
+        {
+          return e.inode_sector;
+        } 
+    }
+  return -1;
+}
 
 static bool
 dir_is_empty (struct dir *dir){
@@ -268,6 +285,9 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
 
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
+    goto done;
+
+  if (e.inode_sector == find_parent(thread_current()->current_dir))
     goto done;
 
   if (e.inode_sector == 1 || e.inode_sector == cwd)
