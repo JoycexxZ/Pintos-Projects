@@ -368,6 +368,7 @@ int
 open (const char *file)
 {
   lock_acquire (&filesys_lock);
+  // printf ("open %s\n", file);
   char *parent, *name;
   parent = (char *)malloc ((strlen (file) + 1));
   name = (char *)malloc ((strlen (file) + 1));
@@ -389,8 +390,10 @@ open (const char *file)
   // printf ("cwd: %d\n", thread_current()->current_dir->inode->sector);
   
   if (strlen(parent) != 0){
-    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
-      return false;
+    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY){
+      lock_release(&filesys_lock);
+      return -1;
+    }
 
     parent_dir = dir_open (dir_inode);
 
@@ -494,14 +497,15 @@ remove (const char *file)
   name = (char *)malloc ((strlen (file) + 1));
   split_name (file, &parent, &name);
   bool ret;
+  // printf ("remove %s\n", file);
 
   struct dir_entry e;
   struct inode *dir_inode;
   enum entry_type type;
   struct dir *parent_dir;
-  printf("path: %s\n",file);
-  printf("parent: %s, name: %s\n",parent, name);
-
+  // printf("path: %s\n",file);
+  // printf("parent: %s, name: %s\n",parent, name);
+ 
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY){
       ret = false;
@@ -511,15 +515,15 @@ remove (const char *file)
     parent_dir = dir_open (dir_inode);
 
     ret = filesys_remove (parent_dir, name, thread_current ()->current_dir->inode);
-    printf("ret at 1: %d\n", ret);
+    // printf("ret at 1: %d\n", ret);
 
     dir_close (parent_dir);
   }
   else{
     ret = filesys_remove (thread_current ()->current_dir, name, thread_current ()->current_dir->inode);
-    printf("ret at 2: %d\n", ret);
+    // printf("ret at 2: %d\n", ret);
   }
-
+  
 done:
   free (name);
   free (parent);
@@ -626,8 +630,11 @@ bool chdir (const char *dir)
 {
   lock_acquire(&filesys_lock);
   struct inode *dir_inode = NULL;
-  printf("cur_dir before: %x\n", thread_current()->current_dir);
+  // printf ("chdir %s\n", dir);
+  // printf("cur_dir before: %x\n", thread_current()->current_dir);
   enum entry_type type;
+  // printf ("in chdir1 - sector: %d, open cnt: %d\n", dir_inode->sector, thread_current ()->current_dir->inode->open_cnt);
+
   if (! dir_lookup(thread_current()->current_dir, dir, &dir_inode, &type) || (type != DIRECTORY))
   {
     lock_release(&filesys_lock);
@@ -635,7 +642,10 @@ bool chdir (const char *dir)
   }
   dir_close (thread_current()->current_dir);
   thread_current()->current_dir = dir_open(dir_inode);
-  printf("cur_dir after: %x\n", thread_current()->current_dir);
+
+  // printf ("in chdir - sector: %d, open cnt: %d\n", dir_inode->sector, thread_current ()->current_dir->inode->open_cnt);
+
+  // printf("cur_dir after: %x\n", thread_current()->current_dir);
   lock_release(&filesys_lock);
   return true;
   
@@ -647,6 +657,7 @@ bool mkdir (const char *dir)
     return false;
 
   lock_acquire(&filesys_lock);
+  // printf ("mkdir: %s\n", dir);
 
   struct inode *dir_inode = NULL;
   struct inode *par_inode = NULL;
@@ -661,6 +672,7 @@ bool mkdir (const char *dir)
   char *name = (char *)malloc((len + 1));
   split_name(dir, &parent, &name);
 
+
   // printf("parent: %s, name: %s\n",parent, name);
 
   if (strlen (parent) != 0){
@@ -672,12 +684,16 @@ bool mkdir (const char *dir)
     dir_close(parent_dir);
   }
   else {
+  //  printf ("in mkdir 1 - sector: %d, name: %s, open cnt: %d\n", thread_current()->current_dir->inode->sector, dir, thread_current ()->current_dir->inode->open_cnt);
     if (dir_lookup (thread_current()->current_dir, dir, &dir_inode, &dir_type))
       goto done;
     success = filesys_create (thread_current ()->current_dir, name, 5*sizeof(struct dir_entry), DIRECTORY);
   }
+  
 
 done:
+  // printf ("in mkdir 2 - sector: %d, open cnt: %d\n", thread_current()->current_dir->inode->sector, thread_current ()->current_dir->inode->open_cnt);
+
   free(parent);
   free(name);
   lock_release(&filesys_lock);

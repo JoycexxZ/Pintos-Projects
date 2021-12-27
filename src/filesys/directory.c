@@ -154,7 +154,7 @@ dir_lookup (const struct dir *dir, const char *name,
 
   if (lookup (dir, name, &e, NULL)){
     // if (strcmp(name, "..") == 0)
-      printf("name: %s\n", name);
+      // printf("name: %s\n", name);
     *inode = inode_open (e.inode_sector);
     *type = e.type;
     goto done;
@@ -183,8 +183,10 @@ dir_lookup (const struct dir *dir, const char *name,
     // printf ("in loop, token: %s\n", token);
     if (cur_type != DIRECTORY)
       goto done;
-    if (!lookup (cur_dir, token, &e, NULL))
+    if (!lookup (cur_dir, token, &e, NULL)){
+      dir_close (cur_dir);
       goto done;
+    }
     cur_type = e.type;
     cur_inode = inode_open (e.inode_sector);
     dir_close (cur_dir);
@@ -267,22 +269,19 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
-printf("1\n");
+
   if (e.inode_sector == 1 || e.inode_sector == cwd)
     goto done;
-printf("2\n");
 
   /* Open inode. */
   inode = inode_open (e.inode_sector);
   if (inode == NULL)
     goto done;
-printf("3\n");
 
   if (e.type == DIRECTORY){
-    printf("open_cnt: %d\n",inode->open_cnt);
+    // printf ("in remove - sector: %d, open cnt: %d\n", e.inode_sector, inode->open_cnt);
     if (inode->open_cnt > 1)
       goto done;
-printf("4\n");
 
     struct dir *deleted_dir = dir_open (inode);
     if (!dir_is_empty (deleted_dir)){
@@ -292,14 +291,12 @@ printf("4\n");
     dir_clear (deleted_dir);
     free (deleted_dir);
   }
-printf("5\n");
 
 
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
     goto done;
-printf("6\n");
 
   /* Remove inode. */
   inode_remove (inode);

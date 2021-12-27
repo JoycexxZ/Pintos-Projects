@@ -76,7 +76,7 @@ inode_disk_clear (struct inode_disk *disk_inode)
   for (size_t i = 0; i < dindirect_end; i++){
     block_read (fs_device, dindirect_block[i], indirect_block);
     size_t indirect_end = (i == dindirect_end - 1)? 
-           byte_to_indirect_index (disk_inode->length)+1:BLOCK_IN_INDIRECT;
+           byte_to_indirect_index (disk_inode->length-1)+1:BLOCK_IN_INDIRECT;
     for (size_t j = 0; j < indirect_end; j++){
       free_map_release (indirect_block[j], 1);
     }
@@ -218,6 +218,9 @@ inode_open (block_sector_t sector)
   inode->deny_write_cnt = 0;
   inode->removed = false;
   block_read (fs_device, inode->sector, &inode->data);
+  if (sector == 4081){
+    // printf ("4081 open cnt: %d\n", inode->open_cnt);
+  }
   return inode;
 }
 
@@ -225,6 +228,9 @@ inode_open (block_sector_t sector)
 struct inode *
 inode_reopen (struct inode *inode)
 {
+  if (inode->sector == 4081){
+    // printf ("4081 open cnt: %d\n", inode->open_cnt);
+  }
   if (inode != NULL)
     inode->open_cnt++;
   return inode;

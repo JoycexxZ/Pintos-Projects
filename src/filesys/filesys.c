@@ -99,7 +99,7 @@ bool
 filesys_remove (struct dir *dir, const char *name, block_sector_t cwd) 
 {
   // struct dir *dir = dir_open_root ();
-  printf("dir: %x\n",dir);
+  // printf("dir: %x\n",dir);
   bool success = dir != NULL && dir_remove (dir, name, cwd);
   // dir_close (dir); 
 
