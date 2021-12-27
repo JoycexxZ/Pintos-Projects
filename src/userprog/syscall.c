@@ -31,6 +31,7 @@ split_name(char *path, char **parent, char **name)
   strlcpy(parent_l, path, len + 1);
   // strlcpy(name_l, path, len + 1);
 
+  
   for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
   int k = 0;
   for(; len >= 0 && parent_l[len] != '/'; parent_l[len] = 0, len--){
@@ -44,6 +45,8 @@ split_name(char *path, char **parent, char **name)
   }
   for(len = len - 1; len >= 0 && parent_l[len] == '/'; parent_l[len] = 0, len--);
 
+  if (strcmp(path, "/") == 0)
+    strlcpy(name_l, path, len + 1);
   // for (size_t i = len - 1; i >= 0 && parent_l[i] != '/'; i--)
   // {
   //   parent_l[i] = 0;
@@ -382,13 +385,14 @@ open (const char *file)
     return -1;
   }
 
-  // printf("parent: %s, name: %s\n",parent, name);
+  printf("parent: %s, name: %s\n",parent, name);
   
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
       return false;
 
-    parent_dir = dir_open ( inode_reopen(dir_inode));
+    printf("par_sector: %d\n", parent_dir->inode->sector);
+    parent_dir = dir_open (inode_reopen(dir_inode));
 
     f = filesys_open (parent_dir, name, &type);
 
@@ -449,7 +453,10 @@ create (const char *file, unsigned initial_size)
 
   if (strlen(parent) != 0){
     if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
-      return false;
+    {
+      ret = false;
+      goto done;
+    }
   // printf("2sector: %d\n", thread_current()->current_dir->inode->sector);
     parent_dir = dir_open ( inode_reopen(dir_inode));
 
@@ -464,6 +471,7 @@ create (const char *file, unsigned initial_size)
     ret = filesys_create (thread_current ()->current_dir, name, initial_size, FILE);
   }
 
+done:
   free (name);
   free (parent);
   lock_release(&filesys_lock);
@@ -489,8 +497,10 @@ remove (const char *file)
   struct dir *parent_dir;
 
   if (strlen(parent) != 0){
-    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY)
-      return false;
+    if (!dir_lookup (thread_current ()->current_dir, parent, &dir_inode, &type) || type != DIRECTORY){
+      ret = false;
+      goto done;
+    }
 
     parent_dir = dir_open ( inode_reopen(dir_inode));
 
@@ -502,6 +512,7 @@ remove (const char *file)
     ret = filesys_remove (thread_current ()->current_dir, name, thread_current ()->current_dir->inode);
   }
 
+done:
   free (name);
   free (parent);
   lock_release(&filesys_lock);

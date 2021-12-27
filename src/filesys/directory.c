@@ -165,7 +165,8 @@ dir_lookup (const struct dir *dir, const char *name,
     goto done;
   }
 
-  if (name[0] == "/"){
+  if (name[0] == '/'){
+    // printf("hh\n");
     cur_dir = dir_open_root ();
   }
   else{
