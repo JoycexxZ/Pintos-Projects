@@ -103,6 +103,8 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
     /* Adjust dindirect and indirect blocks to the end. */
     block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
     size_t dindirect_end = byte_to_dindirect_index (ori_length - 1);
+    // printf ("os: %d, ns: %d, c: %d, index: %d, s1: %d, s2: %d\n", ori_sectors, new_sectors, disk_inode->capacity, dindirect_end, disk_inode->dindirect_block, dindirect_block[dindirect_end]);
+    // printf ("1 - 0, 0 sector: %d, 0 sector: %d\n", dindirect_block[0], disk_inode->dindirect_block);
     block_read (fs_device, dindirect_block[dindirect_end], indirect_block);
   }
   else if(new_length > 0){
@@ -115,6 +117,7 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
   for (size_t i = ori_sectors; i < new_sectors; i++){
     size_t dindirect_index = byte_to_dindirect_index (i*BLOCK_SECTOR_SIZE);
     size_t indirect_index = byte_to_indirect_index (i*BLOCK_SECTOR_SIZE);
+    // printf ("i: %d, s1: %d, s2: %d\n", i, dindirect_index, indirect_index);
 
     /* If a new indirect block is needed. */
     if (indirect_index == 0){
@@ -146,6 +149,11 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
 growth_end:
   if (!success && free_all){
     inode_disk_clear (disk_inode);
+  }
+  if (new_length > 0){
+    block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
+    
+    // printf ("2 - 0, 0 sector: %d, 0 sector: %d\n", dindirect_block[0], disk_inode->dindirect_block);
   }
   return success;
 }

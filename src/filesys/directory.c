@@ -15,10 +15,11 @@ dir_is_empty (struct dir *dir){
   while (inode_read_at (dir->inode, &e, sizeof e, pos) == sizeof e) 
   {
     pos += sizeof e;
-    if (e.in_use && e.name != ".." && e.name != ".")
-      return true;
+    // printf("entry name: %s\n", e.name);
+    if (e.in_use && strcmp(e.name, "..") && strcmp(e.name, "."))
+      return false;
   }
-  return false;
+  return true;
 }
 
 static void
@@ -279,12 +280,13 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
     goto done;
 
   if (e.type == DIRECTORY){
-    // printf ("in remove - sector: %d, open cnt: %d\n", e.inode_sector, inode->open_cnt);
+    // printf("Removing Dir %s\n", name);
     if (inode->open_cnt > 1)
       goto done;
 
     struct dir *deleted_dir = dir_open (inode);
     if (!dir_is_empty (deleted_dir)){
+      // printf("Dir is not empty\n");
       free (deleted_dir);
       goto done;
     }
