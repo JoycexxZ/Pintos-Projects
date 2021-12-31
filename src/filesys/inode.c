@@ -8,6 +8,7 @@
 #include "threads/malloc.h"
 #include "filesys/cache.h"
 #include <stdio.h>
+#include <bitmap.h>
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -72,7 +73,9 @@ static struct list open_inodes;
 static void
 inode_disk_clear (struct inode_disk *disk_inode)
 {
-  size_t dindirect_end = byte_to_dindirect_index (disk_inode->length - 1) + 1;
+  if (disk_inode->capacity == 0)
+    return;
+  size_t dindirect_end = byte_to_dindirect_index (disk_inode->capacity - 1) + 1;
   block_sector_t dindirect_block[BLOCK_IN_INDIRECT];
   block_sector_t indirect_block[BLOCK_IN_INDIRECT];
   // block_read (fs_device, disk_inode->dindirect_block, dindirect_block);
@@ -81,13 +84,18 @@ inode_disk_clear (struct inode_disk *disk_inode)
     // block_read (fs_device, dindirect_block[i], indirect_block);
     cache_block_read (dindirect_block[i], indirect_block);
     size_t indirect_end = (i == dindirect_end - 1)? 
-           byte_to_indirect_index (disk_inode->length-1)+1:BLOCK_IN_INDIRECT;
+           byte_to_indirect_index (disk_inode->capacity-1)+1:BLOCK_IN_INDIRECT;
     for (size_t j = 0; j < indirect_end; j++){
       free_map_release (indirect_block[j], 1);
+      // printf("%d ", indirect_block[j]);
     }
+    // printf("\n");
     free_map_release (dindirect_block[i], 1);
+    // printf("i: %d ", dindirect_block[i]);
+    // printf("\n");
   }
   free_map_release (disk_inode->dindirect_block, 1);
+  // printf("doubly: %d \n", disk_inode->dindirect_block);
 }
 
 static bool
@@ -119,6 +127,7 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
   else if(new_length > 0){
     /* Allocate a double indirect block first. */
     block_sector_t id = allocate_sector_id ();
+    // printf("id1: %d\n", id);
     disk_inode->dindirect_block = id;
   }
 
@@ -131,6 +140,7 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
     /* If a new indirect block is needed. */
     if (indirect_index == 0){
       block_sector_t id = allocate_sector_id ();
+      // printf("id2: %d\n", id);
       if (id == -1)
         goto growth_end;
       dindirect_block[dindirect_index] = id;
@@ -138,6 +148,8 @@ inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_al
 
     /* Allocate the new block sector. */
     block_sector_t id = allocate_sector_id ();
+    // printf("id3: %d\n", id);
+    // printf("ori_length: %d, new_length: %d\n", ori_length, new_length);
     if (id == -1)
       goto growth_end;
     indirect_block[indirect_index] = id;
@@ -285,7 +297,12 @@ inode_close (struct inode *inode)
         {
           cache_to_disk ();
           free_map_release (inode->sector, 1);
+          // if (flag){
+          //   flag--;
+          // printf("in inode_close\n");
+          // }
           inode_disk_clear (&inode->data);
+            // bitmap_dump(free_map);
         }
 
       free (inode); 
@@ -396,6 +413,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
       /* Number of bytes to actually write into this sector. */
       int chunk_size = size < min_left ? size : min_left;
+      // printf("inde_len: %d, sector_left: %d\n", inode_length(inode), sector_left);
       if (chunk_size <= 0)
         break;
 
@@ -432,6 +450,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       size -= chunk_size;
       offset += chunk_size;
       bytes_written += chunk_size;
+      // printf("byte_write: %d, chunk_size: %d\n", bytes_written, chunk_size);
     }
   free (bounce);
 
