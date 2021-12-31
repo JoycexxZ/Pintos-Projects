@@ -36,6 +36,7 @@
 #include "devices/ide.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
+#include "filesys/cache.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -114,6 +115,7 @@ main (void)
   exception_init ();
   syscall_init ();
 #endif
+  cache_table_init ();
 
   /* Start thread scheduler and enable interrupts. */
   thread_start ();
