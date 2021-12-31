@@ -88,10 +88,12 @@ inode_disk_clear (struct inode_disk *disk_inode)
 static bool
 inode_disk_growth (struct inode_disk *disk_inode, off_t new_length, bool free_all)
 {
+  bool success = false;
   if (disk_inode->capacity > new_length){
     disk_inode->length = new_length;
+    success = true;
+    goto growth_end;
   }
-  bool success = false;
   off_t ori_length = disk_inode->length;
   size_t ori_sectors = bytes_to_sectors (ori_length);
   size_t new_sectors = bytes_to_sectors (new_length);
@@ -150,11 +152,11 @@ growth_end:
   if (!success && free_all){
     inode_disk_clear (disk_inode);
   }
-  if (new_length > 0){
-    block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
+  // if (new_length > 0){
+  //   block_read (fs_device, disk_inode->dindirect_block, dindirect_block); 
     
-    // printf ("2 - 0, 0 sector: %d, 0 sector: %d\n", dindirect_block[0], disk_inode->dindirect_block);
-  }
+  //   // printf ("2 - 0, 0 sector: %d, 0 sector: %d\n", dindirect_block[0], disk_inode->dindirect_block);
+  // }
   return success;
 }
 
