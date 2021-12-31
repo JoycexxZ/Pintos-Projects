@@ -6,7 +6,10 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "filesys/free-map.h"
+#include <bitmap.h>
 
+static int flag = 1;
 
 static block_sector_t
 find_parent(struct dir *dir)
@@ -47,7 +50,7 @@ dir_clear (struct dir *dir){
   while (inode_read_at (dir->inode, &e, sizeof e, pos) == sizeof e) 
   {
     pos += sizeof e;
-    if (e.in_use){
+    if (e.in_use && strcmp(e.name, "..") && strcmp(e.name, ".")){
       struct inode *inode = inode_open (e.inode_sector);
       inode_remove (inode);
       inode_close (inode);
@@ -288,8 +291,8 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
   if (!lookup (dir, name, &e, &ofs))
     goto done;
 
-  if (e.inode_sector == find_parent(thread_current()->current_dir))
-    goto done;
+  // if (e.inode_sector == find_parent(thread_current()->current_dir))
+  //   goto done;
 
   if (e.inode_sector == 1 || e.inode_sector == cwd)
     goto done;
@@ -326,6 +329,7 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
 
  done:
   inode_close (inode);
+  
   return success;
 }
 
