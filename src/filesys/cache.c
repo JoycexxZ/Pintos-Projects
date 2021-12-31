@@ -48,6 +48,7 @@ cache_table_find_empty ()
 static void
 save_to_cache (block_sector_t sector, void *data, bool dirty)
 {
+    // printf ("used: %d\n", cache_table_used);
     struct cache_table_entry *e;
     if (cache_table_used < CACHE_SIZE){
         e = &cache_table[cache_table_used];
@@ -76,6 +77,7 @@ void
 cache_block_read (block_sector_t sector, void *buffer)
 {
     lock_acquire (&cache_table_lock);
+    // printf ("Read\n");
     size_t entry_id = cache_table_lookup (sector);
     if (entry_id != -1){
         struct cache_table_entry *entry;
@@ -95,6 +97,7 @@ void
 cache_block_write (block_sector_t sector, void *buffer)
 {
     lock_acquire (&cache_table_lock);
+    // printf ("Write\n");
     size_t entry_id = cache_table_lookup (sector);
     if (entry_id != -1){
         struct cache_table_entry *entry;
