@@ -52,12 +52,10 @@ filesys_create (struct dir *dir, const char *name, off_t initial_size, enum entr
     return false;
   if(strlen(name) == 2 && *name == '.' && name[1] == '.')
     return false;
-  // struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size)
                   && dir_add (dir, name, inode_sector, type));
-  // dir_close (dir);
   if (type == DIRECTORY)
   {
     struct dir *new_dir = dir_open(inode_open(inode_sector));
@@ -82,14 +80,9 @@ filesys_create (struct dir *dir, const char *name, off_t initial_size, enum entr
 struct file *
 filesys_open (struct dir *dir, const char *name, enum entry_type *type)
 {
-  // struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
-
   if (dir != NULL)
     dir_lookup (dir, name, &inode, type);
-  // dir_close (dir);
-
-
   return file_open (inode);
 }
 
@@ -100,11 +93,7 @@ filesys_open (struct dir *dir, const char *name, enum entry_type *type)
 bool
 filesys_remove (struct dir *dir, const char *name, block_sector_t cwd) 
 {
-  // struct dir *dir = dir_open_root ();
-  // printf("dir: %x\n",dir);
   bool success = dir != NULL && dir_remove (dir, name, cwd);
-  // dir_close (dir); 
-
   return success;
 }
 

@@ -4,7 +4,7 @@
 #include "filesys/filesys.h"
 #include "threads/synch.h"
 
-
+/* Look up the cache entry by sector */
 static size_t 
 cache_table_lookup (block_sector_t sector)
 {
@@ -15,6 +15,7 @@ cache_table_lookup (block_sector_t sector)
     return -1;
 }
 
+/* Write the data in entry back to filesys */
 static void
 cache_entry_writeback (struct cache_table_entry *entry)
 {
@@ -24,6 +25,7 @@ cache_entry_writeback (struct cache_table_entry *entry)
     }
 }
 
+/* Find an empty entry in cache */
 static size_t
 cache_table_find_empty ()
 {
@@ -45,10 +47,11 @@ cache_table_find_empty ()
     }
 }
 
+/* Save the data from block to cache */
 static void
 save_to_cache (block_sector_t sector, void *data, bool dirty)
 {
-    // printf ("used: %d\n", cache_table_used);
+
     struct cache_table_entry *e;
     if (cache_table_used < CACHE_SIZE){
         e = &cache_table[cache_table_used];
@@ -64,6 +67,8 @@ save_to_cache (block_sector_t sector, void *data, bool dirty)
     e->last_used = true;
 }
 
+
+/* Init the cache table */
 void 
 cache_table_init ()
 {
@@ -73,11 +78,11 @@ cache_table_init ()
     cache_table_used = 0;
 }
 
+/* Read the data from filesys to the cache */
 void 
 cache_block_read (block_sector_t sector, void *buffer)
 {
     lock_acquire (&cache_table_lock);
-    // printf ("Read\n");
     size_t entry_id = cache_table_lookup (sector);
     if (entry_id != -1){
         struct cache_table_entry *entry;
@@ -92,12 +97,11 @@ cache_block_read (block_sector_t sector, void *buffer)
     lock_release (&cache_table_lock);
 }
 
-
+/* Write the data */
 void
 cache_block_write (block_sector_t sector, void *buffer)
 {
     lock_acquire (&cache_table_lock);
-    // printf ("Write\n");
     size_t entry_id = cache_table_lookup (sector);
     if (entry_id != -1){
         struct cache_table_entry *entry;
@@ -112,6 +116,7 @@ cache_block_write (block_sector_t sector, void *buffer)
     lock_release (&cache_table_lock);
 }
 
+/* Write the data to the disk */
 void 
 cache_to_disk ()
 {

@@ -10,13 +10,11 @@
 
 struct cache_table_entry
 {
-    block_sector_t sector;
-
-    uint8_t data[BLOCK_SECTOR_SIZE];
-
-    bool dirty;
-    bool valid;
-    bool last_used;
+    block_sector_t sector;              /* The sector of the data store */
+    uint8_t data[BLOCK_SECTOR_SIZE];    /* The data in memory */
+    bool dirty;                         /* Dirty flag */
+    bool valid;                         /* Valid falg */
+    bool last_used;                     /* Last used flag */
 };
 
 struct cache_table_entry cache_table[CACHE_SIZE];

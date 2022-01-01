@@ -419,14 +419,6 @@ load (const char *file_name, void (**eip) (void), void **esp, struct thread *par
       goto done; 
     }
 
-  // printf ("in load, file read is %d\n", file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr);
-  // printf ("in load, memcmp is %d\n", memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7));
-  // printf ("in load, e type is %d\n", ehdr.e_type != 2);
-  // printf ("in load, e machine is %d\n", ehdr.e_machine != 3);
-  // printf ("in load, e version is %d\n", ehdr.e_version != 1);
-  // printf ("in load, e p is %d\n", ehdr.e_phentsize != sizeof (struct Elf32_Phdr));
-  // printf ("in load, e phnum is %d\n", ehdr.e_phnum > 1024);
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)

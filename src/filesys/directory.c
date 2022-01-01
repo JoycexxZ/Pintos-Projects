@@ -9,24 +9,7 @@
 #include "filesys/free-map.h"
 #include <bitmap.h>
 
-static int flag = 1;
-
-static block_sector_t
-find_parent(struct dir *dir)
-{
-  struct dir_entry e;
-
-  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
-    {
-      dir->pos += sizeof e;
-      if (e.in_use && !strcmp(e.name, "..") && strcmp(e.name, "."))
-        {
-          return e.inode_sector;
-        } 
-    }
-  return -1;
-}
-
+/* Return if the dir is an empty directory */
 static bool
 dir_is_empty (struct dir *dir){
   struct dir_entry e;
@@ -35,13 +18,13 @@ dir_is_empty (struct dir *dir){
   while (inode_read_at (dir->inode, &e, sizeof e, pos) == sizeof e) 
   {
     pos += sizeof e;
-    // printf("entry name: %s\n", e.name);
     if (e.in_use && strcmp(e.name, "..") && strcmp(e.name, "."))
       return false;
   }
   return true;
 }
 
+/* clear the directory */
 static void
 dir_clear (struct dir *dir){
   struct dir_entry e;
@@ -174,8 +157,6 @@ dir_lookup (const struct dir *dir, const char *name,
   *inode = NULL;
 
   if (lookup (dir, name, &e, NULL)){
-    // if (strcmp(name, "..") == 0)
-      // printf("name: %s\n", name);
     *inode = inode_open (e.inode_sector);
     *type = e.type;
     goto done;
@@ -188,7 +169,6 @@ dir_lookup (const struct dir *dir, const char *name,
   }
 
   if (name[0] == '/'){
-    // printf("hh\n");
     cur_dir = dir_open_root ();
     cur_inode = cur_dir->inode; 
   }
@@ -201,7 +181,6 @@ dir_lookup (const struct dir *dir, const char *name,
   for (token = strtok_r (name_copy, "/", &save_ptr);
        token != NULL;
        token = strtok_r (NULL, "/", &save_ptr)){
-    // printf ("in loop, token: %s\n", token);
     if (cur_type != DIRECTORY)
       goto done;
     if (!lookup (cur_dir, token, &e, NULL)){
@@ -220,7 +199,6 @@ dir_lookup (const struct dir *dir, const char *name,
 
   
 done:
-  // printf ("in look up, name: %s, inode: %x\n", name, *inode);
 
   return *inode != NULL;
 }
@@ -291,9 +269,6 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
   if (!lookup (dir, name, &e, &ofs))
     goto done;
 
-  // if (e.inode_sector == find_parent(thread_current()->current_dir))
-  //   goto done;
-
   if (e.inode_sector == 1 || e.inode_sector == cwd)
     goto done;
 
@@ -303,13 +278,11 @@ dir_remove (struct dir *dir, const char *name, block_sector_t cwd)
     goto done;
 
   if (e.type == DIRECTORY){
-    // printf("Removing Dir %s\n", name);
     if (inode->open_cnt > 1)
       goto done;
 
     struct dir *deleted_dir = dir_open (inode);
     if (!dir_is_empty (deleted_dir)){
-      // printf("Dir is not empty\n");
       free (deleted_dir);
       goto done;
     }
