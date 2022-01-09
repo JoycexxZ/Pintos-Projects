@@ -6,6 +6,7 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
+/* Blocks stored in one indirect block. */
 #define BLOCK_IN_INDIRECT 128
 
 struct bitmap;

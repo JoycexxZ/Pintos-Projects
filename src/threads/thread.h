@@ -127,7 +127,7 @@ struct thread
     int exit_status;                    /* The exit status of this thread. */
     int has_exit;                       /* The flag of print exit msg */
 
-    struct dir* current_dir;
+    struct dir* current_dir;            /* Current directory. */
 // #endif
 
     /* Owned by thread.c. */

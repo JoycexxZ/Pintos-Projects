@@ -6,8 +6,10 @@
 #include "threads/synch.h"
 #include "filesys/off_t.h"
 
+/* Cache entry number in cache table. */
 #define CACHE_SIZE 64
 
+/* Cache table entry. */
 struct cache_table_entry
 {
     block_sector_t sector;              /* The sector of the data store */
@@ -17,9 +19,16 @@ struct cache_table_entry
     bool last_used;                     /* Last used flag */
 };
 
+/* Cache table of CACHE_SIZE entries. */
 struct cache_table_entry cache_table[CACHE_SIZE];
+
+/* Lock for cache table. */
 struct lock cache_table_lock;
+
+/* Next id to try evicting in cache table. */
 size_t cache_table_evict_id;
+
+/* Used length of cache table */
 size_t cache_table_used;
 
 void cache_table_init ();
